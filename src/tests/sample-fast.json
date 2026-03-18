@@ -1,0 +1,178 @@
+[
+  {
+    "url": "https://www.airbnb.com/rooms/782615961942723052?locale=en-US&currency=USD&check_in=2026-05-03&check_out=2026-05-08",
+    "id": "782615961942723052",
+    "name": "Corner Condo 2BR Lakefront Natiivo Austin 25th-fl",
+    "title": "Condo in Austin",
+    "titleLocale": "Corner Condo 2BR Lakefront Natiivo Austin 25th-fl",
+    "subtitles": [
+      "2 bedrooms",
+      "3 beds"
+    ],
+    "additionalInfo": "May 3 – 8",
+    "coordinates": {
+      "latitude": 30.25562,
+      "longitude": -97.74002
+    },
+    "rating": {
+      "label": "4.83 out of 5 average rating,  98 reviews",
+      "localizedLabel": "4.83 (98)",
+      "average": 4.83,
+      "reviewsCount": 98
+    },
+    "images": [
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-782615961942723052/original/49f10486-0799-45a9-8b4f-914545419e89.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-782615961942723052/original/9cb222b5-a449-4bd8-9227-cc004815b560.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-782615961942723052/original/4f0a2cb7-2972-40b3-861a-2ad65a34db81.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-782615961942723052/original/f1eb47cc-f087-428b-926f-f26a3165940b.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-782615961942723052/original/a4657b0f-17ec-4d1f-9505-7b2763d79c5d.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-782615961942723052/original/b0ec37ef-275c-4cba-96e7-bb7954464a3d.jpeg",
+        "captions": []
+      }
+    ],
+    "badges": [
+      "Superhost"
+    ],
+    "pricing": {
+      "label": "$1,696 total",
+      "originalPrice": null,
+      "price": "$1,696",
+      "qualifier": "total",
+      "total": "$1,695.33"
+    },
+    "checkIn": "2026-05-03",
+    "checkOut": "2026-05-08"
+  },
+  {
+    "url": "https://www.airbnb.com/rooms/1221620017469302367?locale=en-US&currency=USD&check_in=2026-03-22&check_out=2026-03-27",
+    "id": "1221620017469302367",
+    "name": "Trendy SoCo 2BR King Suite w/ GymPickleballLaundry",
+    "title": "Apartment in Austin",
+    "titleLocale": "Trendy SoCo 2BR King Suite w/ GymPickleballLaundry",
+    "subtitles": [
+      "2 bedrooms",
+      "2 king beds"
+    ],
+    "additionalInfo": "Mar 22 – 27",
+    "coordinates": {
+      "latitude": 30.23977,
+      "longitude": -97.75346
+    },
+    "rating": {
+      "label": "4.72 out of 5 average rating,  50 reviews",
+      "localizedLabel": "4.72 (50)",
+      "average": 4.72,
+      "reviewsCount": 50
+    },
+    "images": [
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1221620017469302367/original/b5f6c556-e1ef-4dc9-a18c-4c3919459b86.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1221620017469302367/original/d448bb3f-0cbd-4ecb-93cd-acc5af232627.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1221620017469302367/original/41718217-7848-4964-ab17-3365b357cb82.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1221620017469302367/original/143d0fa6-63ab-4067-b9c9-ba22ff0b8988.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1221620017469302367/original/7570afe1-3229-4ea4-af48-c9cf2b662c2d.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-1221620017469302367/original/26aae6d9-23ba-49ae-9a70-4998da93c3a1.jpeg",
+        "captions": []
+      }
+    ],
+    "badges": [],
+    "pricing": {
+      "label": "$762 total, originally $812",
+      "originalPrice": "$812",
+      "price": "$762",
+      "qualifier": "total",
+      "total": "$761.79"
+    },
+    "checkIn": "2026-03-22",
+    "checkOut": "2026-03-27"
+  },
+  {
+    "url": "https://www.airbnb.com/rooms/670269626970273520?locale=en-US&currency=USD&check_in=2026-05-17&check_out=2026-05-22",
+    "id": "670269626970273520",
+    "name": "22nd-Floor Condo | Rooftop Pool, Gym, Rainey",
+    "title": "Condo in Austin",
+    "titleLocale": "22nd-Floor Condo | Rooftop Pool, Gym, Rainey",
+    "subtitles": [
+      "2 bedrooms",
+      "3 beds"
+    ],
+    "additionalInfo": "May 17 – 22",
+    "coordinates": {
+      "latitude": 30.2565,
+      "longitude": -97.7388
+    },
+    "rating": {
+      "label": "4.84 out of 5 average rating,  118 reviews",
+      "localizedLabel": "4.84 (118)",
+      "average": 4.84,
+      "reviewsCount": 118
+    },
+    "images": [
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-670269626970273520/original/8fbf7018-5506-4dc3-8eac-d676048b82c2.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-670269626970273520/original/7b5247c8-1cf4-435a-932e-1067d9863cc2.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-670269626970273520/original/81794c67-a876-496e-860d-2d3c859d5805.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-670269626970273520/original/8c21a7fa-5f1c-4bb3-9c51-9a95f450caa1.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-670269626970273520/original/903c2e6f-ffdd-4318-8734-9e3e837a8489.jpeg",
+        "captions": []
+      },
+      {
+        "url": "https://a0.muscache.com/im/pictures/prohost-api/Hosting-670269626970273520/original/0d74fa79-e119-4136-b3ac-da2aa09c5669.jpeg",
+        "captions": []
+      }
+    ],
+    "badges": [],
+    "pricing": {
+      "label": "$1,378 total, originally $1,557",
+      "originalPrice": "$1,557",
+      "price": "$1,378",
+      "qualifier": "total",
+      "total": "$1,377.18"
+    },
+    "checkIn": "2026-05-17",
+    "checkOut": "2026-05-22"
+  }
+]

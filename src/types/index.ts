@@ -179,7 +179,7 @@ export interface TopComparable {
   rating: number;
   reviewCount: number;
   roomType: string;
-  isGuestFavorite?: boolean;
+  isGuestFavorite: boolean;
 }
 
 export interface MarketAnalysis {
@@ -196,22 +196,3 @@ export interface MarketAnalysis {
   topComparables: TopComparable[];
   investmentSummary: string;
 }
-
-export type AnalyzeMarketErrorCode =
-  | "invalid_input"
-  | "upstream_unavailable"
-  | "no_listings_found"
-  | "internal_error";
-
-export interface AnalyzeMarketError {
-  location: string | null;
-  error: {
-    code: AnalyzeMarketErrorCode;
-    message: string;
-    retryable: boolean;
-  };
-}
-
-export type AnalyzeMarketStructuredContent =
-  | MarketAnalysis
-  | AnalyzeMarketError;

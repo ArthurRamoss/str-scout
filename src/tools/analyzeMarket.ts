@@ -1,306 +1,146 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type {
-  AirbnbListing,
-  AnalyzeMarketError,
-  AnalyzeMarketErrorCode,
-  AnalyzeMarketStructuredContent,
-  MarketAnalysis,
-  DataFreshness,
-  ScrapeOptions,
-} from "../types/index.js";
-import { scrapeAirbnbListings as scrapeAirbnbListingsService } from "../services/apify.js";
-import {
-  buildRawListingsCacheKey,
-  getCachedListings as getCachedListingsService,
-  saveToCache as saveToCacheService,
-  type CacheResult,
-} from "../services/cache.js";
-import { analyzeMarketData as analyzeMarketDataService } from "../services/analysis.js";
-import { generateInvestmentSummary as generateInvestmentSummaryService } from "../services/gemini.js";
-import {
-  toRawScrapeRequest,
-  type RawScrapeRequest,
-} from "../services/scrapeRequest.js";
+import type { MarketAnalysis, DataFreshness, AirbnbListing } from "../types/index.js";
+import { scrapeAirbnbListings } from "../services/apify.js";
+import { getCachedListings, saveToCache } from "../services/cache.js";
+import { analyzeMarketData } from "../services/analysis.js";
+import { generateInvestmentSummary } from "../services/gemini.js";
+import { toRawScrapeRequest } from "../services/scrapeRequest.js";
 
 interface AnalyzeMarketArgs {
   location: string;
-  propertyType?: ScrapeOptions["propertyType"];
+  propertyType?: string;
   bedrooms?: number;
   checkIn?: string;
   checkOut?: string;
 }
 
-type AnalyzeMarketDataResult = ReturnType<typeof analyzeMarketDataService>;
-type LoadedListings = {
-  listings: AirbnbListing[];
-  dataFreshness: DataFreshness;
-  cachedAt: string | null;
-};
-
-export interface AnalyzeMarketResponse extends CallToolResult {
-  content: Array<{ type: "text"; text: string }>;
-  structuredContent: AnalyzeMarketStructuredContent & Record<string, unknown>;
-}
-
-export interface AnalyzeMarketDependencies {
-  getCachedListings: (request: RawScrapeRequest) => Promise<CacheResult | null>;
-  saveToCache: (request: RawScrapeRequest, listings: AirbnbListing[]) => Promise<void>;
-  scrapeAirbnbListings: (options: ScrapeOptions) => Promise<AirbnbListing[]>;
-  analyzeMarketData: (
-    listings: AirbnbListing[],
-    propertyType?: string
-  ) => AnalyzeMarketDataResult;
-  generateInvestmentSummary: (
-    analysis: Omit<MarketAnalysis, "investmentSummary">
-  ) => Promise<string>;
-}
-
-const defaultDependencies: AnalyzeMarketDependencies = {
-  getCachedListings: getCachedListingsService,
-  saveToCache: saveToCacheService,
-  scrapeAirbnbListings: scrapeAirbnbListingsService,
-  analyzeMarketData: analyzeMarketDataService,
-  generateInvestmentSummary: generateInvestmentSummaryService,
-};
-
-const inFlightListingLoads = new Map<string, Promise<LoadedListings>>();
-
-class AnalyzeMarketToolError extends Error {
-  constructor(
-    public readonly code: AnalyzeMarketErrorCode,
-    message: string,
-    public readonly retryable: boolean
-  ) {
-    super(message);
-    this.name = "AnalyzeMarketToolError";
-  }
-}
-
-export function buildAnalyzeMarketResponse(
-  result: MarketAnalysis
-): AnalyzeMarketResponse {
-  return {
-    content: [{ type: "text", text: formatTextResponse(result) }],
-    structuredContent: result as AnalyzeMarketStructuredContent &
-      Record<string, unknown>,
-  };
-}
-
-export function buildAnalyzeMarketErrorResponse(
-  location: string | null,
-  code: AnalyzeMarketErrorCode,
-  message: string,
-  retryable: boolean
-): AnalyzeMarketResponse {
-  const errorResult: AnalyzeMarketError = {
-    location,
-    error: {
-      code,
-      message,
-      retryable,
-    },
-  };
-
-  return {
-    content: [{ type: "text", text: message }],
-    structuredContent: errorResult as AnalyzeMarketStructuredContent &
-      Record<string, unknown>,
-    isError: true,
-  };
-}
-
-export function createAnalyzeMarketHandler(
-  deps: AnalyzeMarketDependencies
-): (
+export async function handleAnalyzeMarket(
   args: Record<string, unknown> | undefined
-) => Promise<AnalyzeMarketResponse> {
-  return async function handleAnalyzeMarket(
-    args: Record<string, unknown> | undefined
-  ): Promise<AnalyzeMarketResponse> {
-    const {
-      location,
-      propertyType = "entire_home",
-      bedrooms,
-      checkIn,
-      checkOut,
-    } = (args ?? {}) as unknown as AnalyzeMarketArgs;
+): Promise<{
+  content: Array<{ type: string; text: string }>;
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+}> {
+  const {
+    location,
+    propertyType = "entire_home",
+    bedrooms,
+    checkIn,
+    checkOut,
+  } = (args ?? {}) as unknown as AnalyzeMarketArgs;
 
+  if (!location) {
+    return {
+      content: [{ type: "text", text: "Error: location is required" }],
+      isError: true,
+    };
+  }
+
+  console.log(`[analyze] Starting analysis for "${location}"`);
+
+  // 1. Check cache
+  let listings: AirbnbListing[];
+  let dataFreshness: DataFreshness = "live";
+  let cachedAt: string | null = null;
+
+  const rawScrapeRequest = toRawScrapeRequest({
+    location,
+    minBedrooms: bedrooms ?? undefined,
+    checkIn: checkIn ?? undefined,
+    checkOut: checkOut ?? undefined,
+  });
+
+  const cached = await getCachedListings(rawScrapeRequest);
+
+  if (cached) {
+    console.log(`[analyze] Cache hit (${cached.dataFreshness}) — ${cached.listings.length} listings`);
+    listings = cached.listings;
+    dataFreshness = cached.dataFreshness;
+    cachedAt = cached.cachedAt;
+  } else {
+    // 2. Scrape fresh data
+    console.log(`[analyze] Cache miss — scraping via Apify`);
     try {
-      if (!location) {
-        throw new AnalyzeMarketToolError(
-          "invalid_input",
-          "location is required",
-          false
-        );
-      }
-
-      console.log(`[analyze] Starting analysis for "${location}"`);
-
-      const rawScrapeRequest = toRawScrapeRequest({
+      listings = await scrapeAirbnbListings({
         location,
         minBedrooms: bedrooms ?? undefined,
         checkIn: checkIn ?? undefined,
         checkOut: checkOut ?? undefined,
+        propertyType: propertyType as any,
       });
 
-      const {
-        listings,
-        dataFreshness,
-        cachedAt,
-      } = await loadListingsForRequest(
-        deps,
-        rawScrapeRequest,
-        propertyType,
-        location
-      );
-
-      console.log(
-        `[analyze] Analyzing ${listings.length} listings (propertyType: ${propertyType})`
-      );
-      const {
-        filtered,
-        revenue,
-        adr,
-        occupancy,
-        saturation,
-        amenityGap,
-        comparables,
-      } = deps.analyzeMarketData(listings, propertyType);
-
-      const partialResult: Omit<MarketAnalysis, "investmentSummary"> = {
-        location,
-        dataFreshness,
-        cachedAt,
-        totalListingsAnalyzed: listings.length,
-        filteredListings: filtered.length,
-        revenueEstimate: revenue,
-        averageDailyRate: adr,
-        occupancyEstimate: occupancy,
-        competitiveSaturation: saturation,
-        amenityGapAnalysis: amenityGap,
-        topComparables: comparables,
-      };
-
-      let investmentSummary: string;
-      try {
-        investmentSummary = await deps.generateInvestmentSummary(partialResult);
-        console.log(`[analyze] Gemini summary generated`);
-      } catch (error: any) {
-        console.warn(
-          `[analyze] Gemini failed, using fallback summary: ${error.message}`
-        );
-        investmentSummary = buildFallbackSummary(partialResult);
-      }
-
-      return buildAnalyzeMarketResponse({
-        ...partialResult,
-        investmentSummary,
-      });
+      // Save to cache
+      await saveToCache(rawScrapeRequest, listings);
+      console.log(`[analyze] Saved ${listings.length} listings to cache`);
     } catch (error: any) {
-      if (error instanceof AnalyzeMarketToolError) {
-        console.warn(
-          `[analyze] Returning schema-valid error response: ${error.code}`
-        );
-        return buildAnalyzeMarketErrorResponse(
-          location ?? null,
-          error.code,
-          error.message,
-          error.retryable
-        );
-      }
-
-      console.error(`[analyze] Unexpected failure: ${error?.message ?? error}`);
-      return buildAnalyzeMarketErrorResponse(
-        location ?? null,
-        "internal_error",
-        `Unexpected analysis failure for "${location ?? "unknown location"}". Please try again later.`,
-        true
-      );
+      console.error(`[analyze] Apify scrape failed: ${error.message}`);
+      return {
+        content: [{ type: "text", text: `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.` }],
+        isError: true,
+      };
     }
+  }
+
+  if (listings.length === 0) {
+    return {
+      content: [{ type: "text", text: `No Airbnb listings found for "${location}". Try a different location or broader search criteria.` }],
+      isError: true,
+    };
+  }
+
+  // 3. Run analysis engine
+  console.log(`[analyze] Analyzing ${listings.length} listings (propertyType: ${propertyType})`);
+  const {
+    filtered,
+    revenue,
+    adr,
+    occupancy,
+    saturation,
+    amenityGap,
+    comparables,
+  } = analyzeMarketData(listings, propertyType);
+
+  // 4. Build partial result for Gemini
+  const partialResult: Omit<MarketAnalysis, "investmentSummary"> = {
+    location,
+    dataFreshness,
+    cachedAt,
+    totalListingsAnalyzed: listings.length,
+    filteredListings: filtered.length,
+    revenueEstimate: revenue,
+    averageDailyRate: adr,
+    occupancyEstimate: occupancy,
+    competitiveSaturation: saturation,
+    amenityGapAnalysis: amenityGap,
+    topComparables: comparables,
+  };
+
+  // 5. Generate investment summary via Gemini
+  let investmentSummary: string;
+  try {
+    investmentSummary = await generateInvestmentSummary(partialResult);
+    console.log(`[analyze] Gemini summary generated`);
+  } catch (error: any) {
+    console.warn(`[analyze] Gemini failed, using fallback summary: ${error.message}`);
+    investmentSummary = buildFallbackSummary(partialResult);
+  }
+
+  // 6. Build final result
+  const result: MarketAnalysis = {
+    ...partialResult,
+    investmentSummary,
+  };
+
+  // 7. Return in MCP format — structuredContent must match outputSchema exactly
+  const textSummary = formatTextResponse(result);
+
+  return {
+    content: [{ type: "text", text: textSummary }],
+    structuredContent: result as unknown as Record<string, unknown>,
   };
 }
 
-export const handleAnalyzeMarket =
-  createAnalyzeMarketHandler(defaultDependencies);
-
-async function loadListingsForRequest(
-  deps: AnalyzeMarketDependencies,
-  rawScrapeRequest: RawScrapeRequest,
-  propertyType: ScrapeOptions["propertyType"],
-  location: string
-): Promise<LoadedListings> {
-  const cached = await deps.getCachedListings(rawScrapeRequest);
-
-  if (cached) {
-    console.log(
-      `[analyze] Cache hit (${cached.dataFreshness}) - ${cached.listings.length} listings`
-    );
-    return cached;
-  }
-
-  const requestKey = buildRawListingsCacheKey(rawScrapeRequest);
-  const existingLoad = inFlightListingLoads.get(requestKey);
-
-  if (existingLoad) {
-    console.log(`[analyze] Awaiting in-flight scrape for "${location}"`);
-    return await existingLoad;
-  }
-
-  console.log(`[analyze] Cache miss - scraping via Apify`);
-  const loadPromise = (async (): Promise<LoadedListings> => {
-    let listings: AirbnbListing[];
-
-    try {
-      listings = await deps.scrapeAirbnbListings({
-        ...rawScrapeRequest,
-        propertyType,
-      });
-    } catch (error: any) {
-      console.error(`[analyze] Apify scrape failed: ${error.message}`);
-      throw new AnalyzeMarketToolError(
-        "upstream_unavailable",
-        `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.`,
-        true
-      );
-    }
-
-    if (listings.length === 0) {
-      throw new AnalyzeMarketToolError(
-        "no_listings_found",
-        `No Airbnb listings found for "${location}". Try a different location or broader search criteria.`,
-        false
-      );
-    }
-
-    await deps.saveToCache(rawScrapeRequest, listings);
-    console.log(`[analyze] Saved ${listings.length} listings to cache`);
-
-    return {
-      listings,
-      dataFreshness: "live",
-      cachedAt: null,
-    };
-  })();
-
-  inFlightListingLoads.set(requestKey, loadPromise);
-
-  try {
-    return await loadPromise;
-  } finally {
-    if (inFlightListingLoads.get(requestKey) === loadPromise) {
-      inFlightListingLoads.delete(requestKey);
-    }
-  }
-}
-
-function buildFallbackSummary(
-  data: Omit<MarketAnalysis, "investmentSummary">
-): string {
-  const {
-    revenueEstimate: rev,
-    competitiveSaturation: sat,
-    averageDailyRate: adr,
-  } = data;
+function buildFallbackSummary(data: Omit<MarketAnalysis, "investmentSummary">): string {
+  const { revenueEstimate: rev, competitiveSaturation: sat, averageDailyRate: adr } = data;
   return `The ${data.location} short-term rental market shows ${sat.label} conditions with ${data.filteredListings} comparable listings. Estimated annual revenue ranges from $${rev.lowEstimate.toLocaleString()} to $${rev.highEstimate.toLocaleString()} at a median ADR of $${adr.median}/night (${rev.confidenceLevel} confidence).`;
 }
 

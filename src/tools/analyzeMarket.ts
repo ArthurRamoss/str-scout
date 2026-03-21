@@ -7,6 +7,7 @@ import type {
 } from "../types/index.js";
 import { scrapeAirbnbListings as scrapeAirbnbListingsService } from "../services/apify.js";
 import {
+  buildRawListingsCacheKey,
   getCachedListings as getCachedListingsService,
   saveToCache as saveToCacheService,
   type CacheResult,
@@ -28,6 +29,11 @@ interface AnalyzeMarketArgs {
 
 type AnalyzeMarketDataResult = ReturnType<typeof analyzeMarketDataService>;
 type AnalyzeMarketStructuredContent = MarketAnalysis & Record<string, unknown>;
+type LoadedListings = {
+  listings: AirbnbListing[];
+  dataFreshness: DataFreshness;
+  cachedAt: string | null;
+};
 
 export interface AnalyzeMarketResponse extends CallToolResult {
   content: Array<{ type: "text"; text: string }>;
@@ -54,6 +60,8 @@ const defaultDependencies: AnalyzeMarketDependencies = {
   analyzeMarketData: analyzeMarketDataService,
   generateInvestmentSummary: generateInvestmentSummaryService,
 };
+
+const inFlightListingLoads = new Map<string, Promise<LoadedListings>>();
 
 export function buildAnalyzeMarketResponse(
   result: MarketAnalysis
@@ -93,42 +101,11 @@ export function createAnalyzeMarketHandler(
       checkOut: checkOut ?? undefined,
     });
 
-    let listings: AirbnbListing[];
-    let dataFreshness: DataFreshness = "live";
-    let cachedAt: string | null = null;
-
-    const cached = await deps.getCachedListings(rawScrapeRequest);
-
-    if (cached) {
-      console.log(
-        `[analyze] Cache hit (${cached.dataFreshness}) - ${cached.listings.length} listings`
-      );
-      listings = cached.listings;
-      dataFreshness = cached.dataFreshness;
-      cachedAt = cached.cachedAt;
-    } else {
-      console.log(`[analyze] Cache miss - scraping via Apify`);
-      try {
-        listings = await deps.scrapeAirbnbListings({
-          ...rawScrapeRequest,
-          propertyType,
-        });
-      } catch (error: any) {
-        console.error(`[analyze] Apify scrape failed: ${error.message}`);
-        throw new Error(
-          `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.`
-        );
-      }
-
-      if (listings.length === 0) {
-        throw new Error(
-          `No Airbnb listings found for "${location}". Try a different location or broader search criteria.`
-        );
-      }
-
-      await deps.saveToCache(rawScrapeRequest, listings);
-      console.log(`[analyze] Saved ${listings.length} listings to cache`);
-    }
+    const {
+      listings,
+      dataFreshness,
+      cachedAt,
+    } = await loadListingsForRequest(deps, rawScrapeRequest, propertyType, location);
 
     if (listings.length === 0) {
       throw new Error(
@@ -183,6 +160,72 @@ export function createAnalyzeMarketHandler(
 
 export const handleAnalyzeMarket =
   createAnalyzeMarketHandler(defaultDependencies);
+
+async function loadListingsForRequest(
+  deps: AnalyzeMarketDependencies,
+  rawScrapeRequest: RawScrapeRequest,
+  propertyType: ScrapeOptions["propertyType"],
+  location: string
+): Promise<LoadedListings> {
+  const cached = await deps.getCachedListings(rawScrapeRequest);
+
+  if (cached) {
+    console.log(
+      `[analyze] Cache hit (${cached.dataFreshness}) - ${cached.listings.length} listings`
+    );
+    return cached;
+  }
+
+  const requestKey = buildRawListingsCacheKey(rawScrapeRequest);
+  const existingLoad = inFlightListingLoads.get(requestKey);
+
+  if (existingLoad) {
+    console.log(`[analyze] Awaiting in-flight scrape for "${location}"`);
+    return await existingLoad;
+  }
+
+  console.log(`[analyze] Cache miss - scraping via Apify`);
+  const loadPromise = (async (): Promise<LoadedListings> => {
+    let listings: AirbnbListing[];
+
+    try {
+      listings = await deps.scrapeAirbnbListings({
+        ...rawScrapeRequest,
+        propertyType,
+      });
+    } catch (error: any) {
+      console.error(`[analyze] Apify scrape failed: ${error.message}`);
+      throw new Error(
+        `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.`
+      );
+    }
+
+    if (listings.length === 0) {
+      throw new Error(
+        `No Airbnb listings found for "${location}". Try a different location or broader search criteria.`
+      );
+    }
+
+    await deps.saveToCache(rawScrapeRequest, listings);
+    console.log(`[analyze] Saved ${listings.length} listings to cache`);
+
+    return {
+      listings,
+      dataFreshness: "live",
+      cachedAt: null,
+    };
+  })();
+
+  inFlightListingLoads.set(requestKey, loadPromise);
+
+  try {
+    return await loadPromise;
+  } finally {
+    if (inFlightListingLoads.get(requestKey) === loadPromise) {
+      inFlightListingLoads.delete(requestKey);
+    }
+  }
+}
 
 function buildFallbackSummary(
   data: Omit<MarketAnalysis, "investmentSummary">

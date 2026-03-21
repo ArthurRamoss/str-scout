@@ -5,7 +5,7 @@ import { resolveRawScrapeRequest, toRawScrapeRequest } from "./scrapeRequest.js"
 const PRIMARY_ACTOR = "curious_coder/airbnb-scraper";
 const FALLBACK_ACTOR = "memo23/airbnb-scraper";
 const APIFY_TIMEOUT = 300; // seconds
-const DEFAULT_COUNT = 50;
+const DEFAULT_COUNT = 30;
 
 let client: ApifyClient | null = null;
 
@@ -43,7 +43,9 @@ async function scrapePrimary(options: ScrapeOptions): Promise<AirbnbListing[]> {
   const searchUrl = buildSearchUrl(options);
   const count = Number(process.env.APIFY_MAX_RESULTS) || DEFAULT_COUNT;
 
-  console.log(`[apify] PRIMARY (${PRIMARY_ACTOR}) — "${options.location}", count=${count}`);
+  console.log(
+    `[apify] PRIMARY (${PRIMARY_ACTOR}) - "${options.location}", count=${count}`
+  );
   const startTime = Date.now();
 
   const run = await apify.actor(PRIMARY_ACTOR).call(
@@ -79,7 +81,9 @@ async function scrapeFallback(options: ScrapeOptions): Promise<AirbnbListing[]> 
   const searchUrl = buildSearchUrl(options);
   const maxItems = Number(process.env.APIFY_MAX_RESULTS) || DEFAULT_COUNT;
 
-  console.log(`[apify] FALLBACK (${FALLBACK_ACTOR}) — "${options.location}", maxItems=${maxItems}`);
+  console.log(
+    `[apify] FALLBACK (${FALLBACK_ACTOR}) - "${options.location}", maxItems=${maxItems}`
+  );
   const startTime = Date.now();
 
   const run = await apify.actor(FALLBACK_ACTOR).call(
@@ -107,7 +111,6 @@ export async function scrapeAirbnbListings(
 ): Promise<AirbnbListing[]> {
   let primaryMsg = "";
 
-  // Try primary scraper
   try {
     return await scrapePrimary(options);
   } catch (primaryError: any) {
@@ -115,7 +118,6 @@ export async function scrapeAirbnbListings(
     console.warn(`[apify] Primary failed: ${primaryMsg}`);
   }
 
-  // Try fallback scraper
   try {
     return await scrapeFallback(options);
   } catch (fallbackError: any) {

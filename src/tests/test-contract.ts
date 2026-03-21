@@ -79,9 +79,10 @@ const sampleAnalysis = {
   ],
 };
 
-const validateMarketAnalysis = new AjvJsonSchemaValidator().getValidator<MarketAnalysis>(
-  ANALYZE_STR_MARKET_OUTPUT_SCHEMA as never
-);
+const validateMarketAnalysis =
+  new AjvJsonSchemaValidator().getValidator<MarketAnalysis>(
+    ANALYZE_STR_MARKET_OUTPUT_SCHEMA as never
+  );
 
 let passed = 0;
 let failed = 0;
@@ -137,7 +138,7 @@ async function assertRejects(
 }
 
 async function main() {
-  console.log("STR Scout — MCP Contract Validation");
+  console.log("STR Scout - MCP Contract Validation");
 
   console.log("\nTest 1: Live response matches outputSchema");
   let savedRequest: RawScrapeRequest | null = null;
@@ -153,9 +154,18 @@ async function main() {
     propertyType: "entire_home",
     bedrooms: 2,
   });
-  assert(liveResponse.structuredContent.cachedAt === null, "Live response returns cachedAt = null");
-  assert(liveResponse.structuredContent.dataFreshness === "live", "Live response marks dataFreshness as live");
-  assert(liveResponse.content[0]?.type === "text", "Live response includes text content");
+  assert(
+    liveResponse.structuredContent.cachedAt === null,
+    "Live response returns cachedAt = null"
+  );
+  assert(
+    liveResponse.structuredContent.dataFreshness === "live",
+    "Live response marks dataFreshness as live"
+  );
+  assert(
+    liveResponse.content[0]?.type === "text",
+    "Live response includes text content"
+  );
   assertSchemaValid(liveResponse.structuredContent, "Live response");
   assert(savedRequest !== null, "Live response writes to cache on cache miss");
   const savedMinBedrooms = (savedRequest as RawScrapeRequest | null)?.minBedrooms;
@@ -181,7 +191,10 @@ async function main() {
     })
   );
   const cachedResponse = await cachedHandler({ location: "Austin, TX" });
-  assert(cachedResponse.structuredContent.cachedAt === cachedAt, "Cached response returns ISO cachedAt");
+  assert(
+    cachedResponse.structuredContent.cachedAt === cachedAt,
+    "Cached response returns ISO cachedAt"
+  );
   assert(
     cachedResponse.structuredContent.dataFreshness === "cached_48h",
     "Cached response preserves cached freshness label"
@@ -236,7 +249,72 @@ async function main() {
     "Scrape failure"
   );
 
-  console.log("\nTest 5: Cache key derivation uses raw scrape inputs");
+  console.log("\nTest 5: Concurrent identical requests reuse the same scrape");
+  let concurrentScrapeCalls = 0;
+  let concurrentSaveCalls = 0;
+  const concurrentGate: {
+    releaseScrape: (() => void) | null;
+    markScrapeStarted: (() => void) | null;
+  } = {
+    releaseScrape: null,
+    markScrapeStarted: null,
+  };
+  const scrapeStarted = new Promise<void>((resolve) => {
+    concurrentGate.markScrapeStarted = () => {
+      resolve();
+    };
+  });
+  const scrapeBlocked = new Promise<void>((resolve) => {
+    concurrentGate.releaseScrape = () => {
+      resolve();
+    };
+  });
+  const dedupeHandler = createAnalyzeMarketHandler(
+    createDependencies({
+      getCachedListings: async () => null,
+      saveToCache: async () => {
+        concurrentSaveCalls++;
+      },
+      scrapeAirbnbListings: async () => {
+        concurrentScrapeCalls++;
+        if (concurrentGate.markScrapeStarted) {
+          concurrentGate.markScrapeStarted();
+        }
+        await scrapeBlocked;
+        return sampleListings;
+      },
+    })
+  );
+  const firstRequest = dedupeHandler({ location: "Austin, TX" });
+  await scrapeStarted;
+  const secondRequest = dedupeHandler({ location: "Austin, TX" });
+  const releaseScrape = concurrentGate.releaseScrape;
+  if (!releaseScrape) {
+    throw new Error("Concurrent scrape gate did not initialize");
+  }
+  releaseScrape();
+  const [firstConcurrentResponse, secondConcurrentResponse] = await Promise.all([
+    firstRequest,
+    secondRequest,
+  ]);
+  assert(
+    concurrentScrapeCalls === 1,
+    "Concurrent identical requests trigger only one upstream scrape"
+  );
+  assert(
+    concurrentSaveCalls === 1,
+    "Concurrent identical requests write one cache entry"
+  );
+  assertSchemaValid(
+    firstConcurrentResponse.structuredContent,
+    "First concurrent response"
+  );
+  assertSchemaValid(
+    secondConcurrentResponse.structuredContent,
+    "Second concurrent response"
+  );
+
+  console.log("\nTest 6: Cache key derivation uses raw scrape inputs");
   const bedroomOneKey = buildRawListingsCacheKey(
     toRawScrapeRequest({
       location: "Austin, TX",

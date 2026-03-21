@@ -37,11 +37,11 @@ function mean(arr: number[]): number {
 
 function extractPrice(listing: AirbnbListing): number | null {
   // tri_angle/airbnb-scraper detailed format
-  if (listing.price?.amount) {
+  if (typeof listing.price === "object" && listing.price?.amount) {
     const num = parseFloat(listing.price.amount.replace(/[^0-9.]/g, ""));
     if (!isNaN(num) && num > 0) return num;
   }
-  if (listing.price?.label) {
+  if (typeof listing.price === "object" && listing.price?.label) {
     const match = listing.price.label.match(/\$?([\d,]+)/);
     if (match) {
       const num = parseFloat(match[1].replace(/,/g, ""));
@@ -248,7 +248,7 @@ export function calculateSaturation(
     (l) =>
       l.isSuperHost ||
       l.host?.isSuperHost ||
-      (l.badges && l.badges.some((b) => b.toLowerCase().includes("favorite")))
+      (l.badges && l.badges.some((b) => typeof b === "string" ? b.toLowerCase().includes("favorite") : b.label.toLowerCase().includes("favorite")))
   );
   const guestFavoritePercent = (guestFavorites.length / total) * 100;
 
@@ -364,7 +364,7 @@ export function analyzeAmenities(listings: AirbnbListing[]): AmenityGapAnalysis 
     for (const listing of group) {
       if (!listing.amenities) continue;
       const allAmenities = listing.amenities
-        .flatMap((cat) => cat.values)
+        .flatMap((cat) => "values" in cat ? cat.values : [])
         .filter((v) => v.available === true)
         .map((v) => v.title);
 

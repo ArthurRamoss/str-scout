@@ -13,13 +13,14 @@ interface AnalyzeMarketArgs {
   checkOut?: string;
 }
 
+/**
+ * Analyze a short-term rental market.
+ * Returns a plain MarketAnalysis object — the server wraps it
+ * with successResult() to add content + structuredContent.
+ */
 export async function handleAnalyzeMarket(
   args: Record<string, unknown> | undefined
-): Promise<{
-  content: Array<{ type: string; text: string }>;
-  structuredContent?: Record<string, unknown>;
-  isError?: boolean;
-}> {
+): Promise<MarketAnalysis> {
   const {
     location,
     propertyType = "entire_home",
@@ -29,10 +30,7 @@ export async function handleAnalyzeMarket(
   } = (args ?? {}) as unknown as AnalyzeMarketArgs;
 
   if (!location) {
-    return {
-      content: [{ type: "text", text: "Error: location is required" }],
-      isError: true,
-    };
+    throw new Error("location is required");
   }
 
   console.log(`[analyze] Starting analysis for "${location}"`);
@@ -59,32 +57,21 @@ export async function handleAnalyzeMarket(
   } else {
     // 2. Scrape fresh data
     console.log(`[analyze] Cache miss — scraping via Apify`);
-    try {
-      listings = await scrapeAirbnbListings({
-        location,
-        minBedrooms: bedrooms ?? undefined,
-        checkIn: checkIn ?? undefined,
-        checkOut: checkOut ?? undefined,
-        propertyType: propertyType as any,
-      });
+    listings = await scrapeAirbnbListings({
+      location,
+      minBedrooms: bedrooms ?? undefined,
+      checkIn: checkIn ?? undefined,
+      checkOut: checkOut ?? undefined,
+      propertyType: propertyType as any,
+    });
 
-      // Save to cache
-      await saveToCache(rawScrapeRequest, listings);
-      console.log(`[analyze] Saved ${listings.length} listings to cache`);
-    } catch (error: any) {
-      console.error(`[analyze] Apify scrape failed: ${error.message}`);
-      return {
-        content: [{ type: "text", text: `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.` }],
-        isError: true,
-      };
-    }
+    // Save to cache
+    await saveToCache(rawScrapeRequest, listings);
+    console.log(`[analyze] Saved ${listings.length} listings to cache`);
   }
 
   if (listings.length === 0) {
-    return {
-      content: [{ type: "text", text: `No Airbnb listings found for "${location}". Try a different location or broader search criteria.` }],
-      isError: true,
-    };
+    throw new Error(`No Airbnb listings found for "${location}". Try a different location or broader search criteria.`);
   }
 
   // 3. Run analysis engine
@@ -130,35 +117,11 @@ export async function handleAnalyzeMarket(
     investmentSummary,
   };
 
-  // 7. Return in MCP format — structuredContent must match outputSchema exactly
-  const textSummary = formatTextResponse(result);
-
   // Force plain JSON — no class instances, no prototypes, no circular refs
-  const plainResult = JSON.parse(JSON.stringify(result));
-
-  return {
-    content: [{ type: "text", text: textSummary }],
-    structuredContent: plainResult,
-  };
+  return JSON.parse(JSON.stringify(result));
 }
 
 function buildFallbackSummary(data: Omit<MarketAnalysis, "investmentSummary">): string {
   const { revenueEstimate: rev, competitiveSaturation: sat, averageDailyRate: adr } = data;
   return `The ${data.location} short-term rental market shows ${sat.label} conditions with ${data.filteredListings} comparable listings. Estimated annual revenue ranges from $${rev.lowEstimate.toLocaleString()} to $${rev.highEstimate.toLocaleString()} at a median ADR of $${adr.median}/night (${rev.confidenceLevel} confidence).`;
-}
-
-function formatTextResponse(data: MarketAnalysis): string {
-  return `STR Market Analysis for ${data.location}
-
-${data.investmentSummary}
-
-Key Metrics:
-- Revenue Estimate: $${data.revenueEstimate.lowEstimate.toLocaleString()}-$${data.revenueEstimate.highEstimate.toLocaleString()}/year (${data.revenueEstimate.confidenceLevel} confidence)
-- Average Daily Rate: $${data.averageDailyRate.median}/night (range: $${data.averageDailyRate.percentile25}-$${data.averageDailyRate.percentile75})
-- Occupancy: ${(data.occupancyEstimate.estimatedRate * 100).toFixed(0)}%
-- Market Saturation: ${data.competitiveSaturation.label} (${data.competitiveSaturation.score}/100)
-- Listings Analyzed: ${data.filteredListings} filtered / ${data.totalListingsAnalyzed} total
-- Data: ${data.dataFreshness}${data.cachedAt ? ` (cached ${data.cachedAt})` : ""}
-
-${data.amenityGapAnalysis.recommendedAmenities.length > 0 ? `Top Amenity Recommendations: ${data.amenityGapAnalysis.recommendedAmenities.join(", ")}` : ""}`;
 }

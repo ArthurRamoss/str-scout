@@ -299,13 +299,16 @@ export const TOOLS = [
       ],
     },
     _meta: {
+      surface: "both",
+      queryEligible: true,
+      latencyClass: "slow",
       pricing: {
-        executeUsd: "0.10",
+        queryUsd: "0.10",
+        executeUsd: "0.002",
       },
-      surface: "query",
       context: [
-        "The tool requires a location string. For best results, include city + state for US locations.",
-        "First query for a new location takes ~45-60s (live Apify scrape). Subsequent queries for the same location are served from cache in <2s.",
+        "The tool requires a location string. For best results, include city + state for US locations (e.g., 'Austin, TX', 'Miami Beach, FL').",
+        "First query for a new location may take 20-30s while data is collected. Repeat queries are served from cache in under 2s.",
       ],
       smokeTestInput: {
         location: "Austin, TX",
@@ -315,7 +318,7 @@ export const TOOLS = [
         cooldownMs: 6000,
         maxConcurrency: 1,
         supportsBulk: false,
-        notes: "Apify scraper has ~45-60s latency for uncached locations. Cache serves in <2s. Default location (Austin, TX) is pre-cached on boot.",
+        notes: "Uncached locations take 20-30s. Cached locations serve in <2s. Default location (Austin, TX) is pre-cached on boot.",
       },
     },
   },

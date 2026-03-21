@@ -1,5 +1,6 @@
 import { ApifyClient } from "apify-client";
 import type { AirbnbListing, ScrapeOptions } from "../types/index.js";
+import { resolveRawScrapeRequest, toRawScrapeRequest } from "./scrapeRequest.js";
 
 const PRIMARY_ACTOR = "curious_coder/airbnb-scraper";
 const FALLBACK_ACTOR = "memo23/airbnb-scraper";
@@ -19,14 +20,15 @@ function getClient(): ApifyClient {
 
 // Build Airbnb search URL from location string
 function buildSearchUrl(options: ScrapeOptions): string {
-  const { location, minBedrooms, checkIn, checkOut } = options;
+  const { location, minBedrooms, checkIn, checkOut } = resolveRawScrapeRequest(
+    toRawScrapeRequest(options)
+  );
   const encoded = encodeURIComponent(location);
   const slug = location.replace(/[,\s]+/g, "-").replace(/[^a-zA-Z0-9-]/g, "");
 
   let url = `https://www.airbnb.com/s/${slug}/homes?query=${encoded}&tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&currency=USD`;
 
-  const bedrooms = minBedrooms ?? 1; // default filter to reduce cost
-  url += `&min_bedrooms=${bedrooms}`;
+  url += `&min_bedrooms=${minBedrooms}`;
 
   if (checkIn) url += `&checkin=${checkIn}`;
   if (checkOut) url += `&checkout=${checkOut}`;

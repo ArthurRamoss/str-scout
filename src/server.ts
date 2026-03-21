@@ -157,7 +157,7 @@ server.setTimeout(300_000);
 const WARMUP_LOCATION = "Austin, TX";
 setTimeout(async () => {
   const { getCachedListings } = await import("./services/cache.js");
-  const cached = await getCachedListings(WARMUP_LOCATION);
+  const cached = await getCachedListings({ location: WARMUP_LOCATION });
   if (cached) {
     console.log(`[warmup] Cache already seeded for "${WARMUP_LOCATION}" (${cached.listings.length} listings)`);
     return;

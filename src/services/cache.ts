@@ -1,4 +1,6 @@
 import type { AirbnbListing, CachedMarketData, DataFreshness } from "../types/index.js";
+import type { RawScrapeRequest } from "./scrapeRequest.js";
+import { resolveRawScrapeRequest } from "./scrapeRequest.js";
 
 const FRESH_TTL_HOURS = 48;
 const STALE_TTL_HOURS = 7 * 24; // 7 days
@@ -36,6 +38,20 @@ export function normalizeCacheKey(location: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
+export function buildRawListingsCacheKey(request: RawScrapeRequest): string {
+  const resolved = resolveRawScrapeRequest(request);
+  const checkIn = resolved.checkIn ?? "none";
+  const checkOut = resolved.checkOut ?? "none";
+
+  return [
+    "str",
+    normalizeCacheKey(resolved.location),
+    `bedrooms-${resolved.minBedrooms}`,
+    `checkin-${checkIn}`,
+    `checkout-${checkOut}`,
+  ].join(":");
+}
+
 async function cacheGet(key: string): Promise<string | null> {
   const redis = await getRedis();
   if (redis) {
@@ -61,8 +77,10 @@ export interface CacheResult {
   cachedAt: string | null;
 }
 
-export async function getCachedListings(location: string): Promise<CacheResult | null> {
-  const key = `str:${normalizeCacheKey(location)}`;
+export async function getCachedListings(
+  request: RawScrapeRequest
+): Promise<CacheResult | null> {
+  const key = buildRawListingsCacheKey(request);
   const raw = await cacheGet(key);
 
   if (!raw) return null;
@@ -88,10 +106,13 @@ export async function getCachedListings(location: string): Promise<CacheResult |
   }
 }
 
-export async function saveToCache(location: string, listings: AirbnbListing[]): Promise<void> {
-  const key = `str:${normalizeCacheKey(location)}`;
+export async function saveToCache(
+  request: RawScrapeRequest,
+  listings: AirbnbListing[]
+): Promise<void> {
+  const key = buildRawListingsCacheKey(request);
   const data: CachedMarketData = {
-    location,
+    location: request.location,
     listings,
     scrapedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + STALE_TTL_SECONDS * 1000).toISOString(),

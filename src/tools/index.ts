@@ -295,10 +295,32 @@ export const ANALYZE_STR_MARKET_ERROR_SCHEMA = {
 };
 
 export const ANALYZE_STR_MARKET_OUTPUT_SCHEMA = {
-  oneOf: [
-    ANALYZE_STR_MARKET_SUCCESS_SCHEMA,
-    ANALYZE_STR_MARKET_ERROR_SCHEMA,
-  ],
+  type: "object" as const,
+  properties: {
+    location: ANALYZE_STR_MARKET_ERROR_SCHEMA.properties.location,
+    dataFreshness: ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.dataFreshness,
+    cachedAt: ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.cachedAt,
+    totalListingsAnalyzed:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.totalListingsAnalyzed,
+    filteredListings:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.filteredListings,
+    revenueEstimate:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.revenueEstimate,
+    averageDailyRate:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.averageDailyRate,
+    occupancyEstimate:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.occupancyEstimate,
+    competitiveSaturation:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.competitiveSaturation,
+    amenityGapAnalysis:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.amenityGapAnalysis,
+    topComparables:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.topComparables,
+    investmentSummary:
+      ANALYZE_STR_MARKET_SUCCESS_SCHEMA.properties.investmentSummary,
+    error: ANALYZE_STR_MARKET_ERROR_SCHEMA.properties.error,
+  },
+  oneOf: [ANALYZE_STR_MARKET_SUCCESS_SCHEMA, ANALYZE_STR_MARKET_ERROR_SCHEMA],
 };
 
 export const ANALYZE_STR_MARKET_TOOL = {

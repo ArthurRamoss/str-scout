@@ -1,6 +1,9 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type {
   AirbnbListing,
+  AnalyzeMarketError,
+  AnalyzeMarketErrorCode,
+  AnalyzeMarketStructuredContent,
   MarketAnalysis,
   DataFreshness,
   ScrapeOptions,
@@ -28,7 +31,6 @@ interface AnalyzeMarketArgs {
 }
 
 type AnalyzeMarketDataResult = ReturnType<typeof analyzeMarketDataService>;
-type AnalyzeMarketStructuredContent = MarketAnalysis & Record<string, unknown>;
 type LoadedListings = {
   listings: AirbnbListing[];
   dataFreshness: DataFreshness;
@@ -37,7 +39,7 @@ type LoadedListings = {
 
 export interface AnalyzeMarketResponse extends CallToolResult {
   content: Array<{ type: "text"; text: string }>;
-  structuredContent: AnalyzeMarketStructuredContent;
+  structuredContent: AnalyzeMarketStructuredContent & Record<string, unknown>;
 }
 
 export interface AnalyzeMarketDependencies {
@@ -63,12 +65,47 @@ const defaultDependencies: AnalyzeMarketDependencies = {
 
 const inFlightListingLoads = new Map<string, Promise<LoadedListings>>();
 
+class AnalyzeMarketToolError extends Error {
+  constructor(
+    public readonly code: AnalyzeMarketErrorCode,
+    message: string,
+    public readonly retryable: boolean
+  ) {
+    super(message);
+    this.name = "AnalyzeMarketToolError";
+  }
+}
+
 export function buildAnalyzeMarketResponse(
   result: MarketAnalysis
 ): AnalyzeMarketResponse {
   return {
     content: [{ type: "text", text: formatTextResponse(result) }],
-    structuredContent: result as AnalyzeMarketStructuredContent,
+    structuredContent: result as AnalyzeMarketStructuredContent &
+      Record<string, unknown>,
+  };
+}
+
+export function buildAnalyzeMarketErrorResponse(
+  location: string | null,
+  code: AnalyzeMarketErrorCode,
+  message: string,
+  retryable: boolean
+): AnalyzeMarketResponse {
+  const errorResult: AnalyzeMarketError = {
+    location,
+    error: {
+      code,
+      message,
+      retryable,
+    },
+  };
+
+  return {
+    content: [{ type: "text", text: message }],
+    structuredContent: errorResult as AnalyzeMarketStructuredContent &
+      Record<string, unknown>,
+    isError: true,
   };
 }
 
@@ -88,73 +125,98 @@ export function createAnalyzeMarketHandler(
       checkOut,
     } = (args ?? {}) as unknown as AnalyzeMarketArgs;
 
-    if (!location) {
-      throw new Error("location is required");
-    }
-
-    console.log(`[analyze] Starting analysis for "${location}"`);
-
-    const rawScrapeRequest = toRawScrapeRequest({
-      location,
-      minBedrooms: bedrooms ?? undefined,
-      checkIn: checkIn ?? undefined,
-      checkOut: checkOut ?? undefined,
-    });
-
-    const {
-      listings,
-      dataFreshness,
-      cachedAt,
-    } = await loadListingsForRequest(deps, rawScrapeRequest, propertyType, location);
-
-    if (listings.length === 0) {
-      throw new Error(
-        `No Airbnb listings found for "${location}". Try a different location or broader search criteria.`
-      );
-    }
-
-    console.log(
-      `[analyze] Analyzing ${listings.length} listings (propertyType: ${propertyType})`
-    );
-    const {
-      filtered,
-      revenue,
-      adr,
-      occupancy,
-      saturation,
-      amenityGap,
-      comparables,
-    } = deps.analyzeMarketData(listings, propertyType);
-
-    const partialResult: Omit<MarketAnalysis, "investmentSummary"> = {
-      location,
-      dataFreshness,
-      cachedAt,
-      totalListingsAnalyzed: listings.length,
-      filteredListings: filtered.length,
-      revenueEstimate: revenue,
-      averageDailyRate: adr,
-      occupancyEstimate: occupancy,
-      competitiveSaturation: saturation,
-      amenityGapAnalysis: amenityGap,
-      topComparables: comparables,
-    };
-
-    let investmentSummary: string;
     try {
-      investmentSummary = await deps.generateInvestmentSummary(partialResult);
-      console.log(`[analyze] Gemini summary generated`);
-    } catch (error: any) {
-      console.warn(
-        `[analyze] Gemini failed, using fallback summary: ${error.message}`
-      );
-      investmentSummary = buildFallbackSummary(partialResult);
-    }
+      if (!location) {
+        throw new AnalyzeMarketToolError(
+          "invalid_input",
+          "location is required",
+          false
+        );
+      }
 
-    return buildAnalyzeMarketResponse({
-      ...partialResult,
-      investmentSummary,
-    });
+      console.log(`[analyze] Starting analysis for "${location}"`);
+
+      const rawScrapeRequest = toRawScrapeRequest({
+        location,
+        minBedrooms: bedrooms ?? undefined,
+        checkIn: checkIn ?? undefined,
+        checkOut: checkOut ?? undefined,
+      });
+
+      const {
+        listings,
+        dataFreshness,
+        cachedAt,
+      } = await loadListingsForRequest(
+        deps,
+        rawScrapeRequest,
+        propertyType,
+        location
+      );
+
+      console.log(
+        `[analyze] Analyzing ${listings.length} listings (propertyType: ${propertyType})`
+      );
+      const {
+        filtered,
+        revenue,
+        adr,
+        occupancy,
+        saturation,
+        amenityGap,
+        comparables,
+      } = deps.analyzeMarketData(listings, propertyType);
+
+      const partialResult: Omit<MarketAnalysis, "investmentSummary"> = {
+        location,
+        dataFreshness,
+        cachedAt,
+        totalListingsAnalyzed: listings.length,
+        filteredListings: filtered.length,
+        revenueEstimate: revenue,
+        averageDailyRate: adr,
+        occupancyEstimate: occupancy,
+        competitiveSaturation: saturation,
+        amenityGapAnalysis: amenityGap,
+        topComparables: comparables,
+      };
+
+      let investmentSummary: string;
+      try {
+        investmentSummary = await deps.generateInvestmentSummary(partialResult);
+        console.log(`[analyze] Gemini summary generated`);
+      } catch (error: any) {
+        console.warn(
+          `[analyze] Gemini failed, using fallback summary: ${error.message}`
+        );
+        investmentSummary = buildFallbackSummary(partialResult);
+      }
+
+      return buildAnalyzeMarketResponse({
+        ...partialResult,
+        investmentSummary,
+      });
+    } catch (error: any) {
+      if (error instanceof AnalyzeMarketToolError) {
+        console.warn(
+          `[analyze] Returning schema-valid error response: ${error.code}`
+        );
+        return buildAnalyzeMarketErrorResponse(
+          location ?? null,
+          error.code,
+          error.message,
+          error.retryable
+        );
+      }
+
+      console.error(`[analyze] Unexpected failure: ${error?.message ?? error}`);
+      return buildAnalyzeMarketErrorResponse(
+        location ?? null,
+        "internal_error",
+        `Unexpected analysis failure for "${location ?? "unknown location"}". Please try again later.`,
+        true
+      );
+    }
   };
 }
 
@@ -195,14 +257,18 @@ async function loadListingsForRequest(
       });
     } catch (error: any) {
       console.error(`[analyze] Apify scrape failed: ${error.message}`);
-      throw new Error(
-        `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.`
+      throw new AnalyzeMarketToolError(
+        "upstream_unavailable",
+        `Unable to fetch market data for "${location}". The scraper may be temporarily unavailable. Please try again in a few minutes.`,
+        true
       );
     }
 
     if (listings.length === 0) {
-      throw new Error(
-        `No Airbnb listings found for "${location}". Try a different location or broader search criteria.`
+      throw new AnalyzeMarketToolError(
+        "no_listings_found",
+        `No Airbnb listings found for "${location}". Try a different location or broader search criteria.`,
+        false
       );
     }
 

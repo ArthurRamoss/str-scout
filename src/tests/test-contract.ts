@@ -8,6 +8,8 @@ import { buildRawListingsCacheKey } from "../services/cache.js";
 import { toRawScrapeRequest } from "../services/scrapeRequest.js";
 import type {
   AirbnbListing,
+  AnalyzeMarketError,
+  AnalyzeMarketStructuredContent,
   MarketAnalysis,
   ScrapeOptions,
 } from "../types/index.js";
@@ -80,7 +82,7 @@ const sampleAnalysis = {
 };
 
 const validateMarketAnalysis =
-  new AjvJsonSchemaValidator().getValidator<MarketAnalysis>(
+  new AjvJsonSchemaValidator().getValidator<AnalyzeMarketStructuredContent>(
     ANALYZE_STR_MARKET_OUTPUT_SCHEMA as never
   );
 
@@ -111,7 +113,19 @@ function createDependencies(
   };
 }
 
-function assertSchemaValid(data: MarketAnalysis, label: string) {
+function isSuccessResult(
+  data: AnalyzeMarketStructuredContent
+): data is MarketAnalysis {
+  return "dataFreshness" in data;
+}
+
+function isErrorResult(
+  data: AnalyzeMarketStructuredContent
+): data is AnalyzeMarketError {
+  return "error" in data;
+}
+
+function assertSchemaValid(data: AnalyzeMarketStructuredContent, label: string) {
   const validationResult = validateMarketAnalysis(data);
   assert(
     validationResult.valid,
@@ -121,20 +135,40 @@ function assertSchemaValid(data: MarketAnalysis, label: string) {
   );
 }
 
-async function assertRejects(
-  fn: () => Promise<unknown>,
+function assertSuccessResponse(
+  response: { structuredContent: AnalyzeMarketStructuredContent; isError?: boolean },
+  label: string
+) {
+  assert(response.isError !== true, `${label} is not flagged as tool error`);
+  assert(
+    isSuccessResult(response.structuredContent),
+    `${label} returns success structuredContent`
+  );
+}
+
+function assertErrorResponse(
+  response: { structuredContent: AnalyzeMarketStructuredContent; isError?: boolean },
+  expectedCode: AnalyzeMarketError["error"]["code"],
   expectedMessage: string,
   label: string
 ) {
-  try {
-    await fn();
-    assert(false, `${label} rejects with "${expectedMessage}"`);
-  } catch (error: any) {
-    assert(
-      String(error?.message ?? error).includes(expectedMessage),
-      `${label} rejects with "${expectedMessage}"`
-    );
+  assert(response.isError === true, `${label} is flagged as tool error`);
+  assert(
+    isErrorResult(response.structuredContent),
+    `${label} returns error structuredContent`
+  );
+  if (!isErrorResult(response.structuredContent)) {
+    return;
   }
+
+  assert(
+    response.structuredContent.error.code === expectedCode,
+    `${label} uses error code "${expectedCode}"`
+  );
+  assert(
+    response.structuredContent.error.message.includes(expectedMessage),
+    `${label} includes error message "${expectedMessage}"`
+  );
 }
 
 async function main() {
@@ -154,6 +188,10 @@ async function main() {
     propertyType: "entire_home",
     bedrooms: 2,
   });
+  assertSuccessResponse(liveResponse, "Live response");
+  if (!isSuccessResult(liveResponse.structuredContent)) {
+    throw new Error("Live response unexpectedly returned error structuredContent");
+  }
   assert(
     liveResponse.structuredContent.cachedAt === null,
     "Live response returns cachedAt = null"
@@ -191,6 +229,10 @@ async function main() {
     })
   );
   const cachedResponse = await cachedHandler({ location: "Austin, TX" });
+  assertSuccessResponse(cachedResponse, "Cached response");
+  if (!isSuccessResult(cachedResponse.structuredContent)) {
+    throw new Error("Cached response unexpectedly returned error structuredContent");
+  }
   assert(
     cachedResponse.structuredContent.cachedAt === cachedAt,
     "Cached response returns ISO cachedAt"
@@ -211,18 +253,30 @@ async function main() {
     })
   );
   const fallbackResponse = await fallbackHandler({ location: "Austin, TX" });
+  assertSuccessResponse(fallbackResponse, "Fallback response");
+  if (!isSuccessResult(fallbackResponse.structuredContent)) {
+    throw new Error(
+      "Fallback response unexpectedly returned error structuredContent"
+    );
+  }
   assert(
     fallbackResponse.structuredContent.investmentSummary.length > 20,
     "Fallback summary is populated when Gemini fails"
   );
   assertSchemaValid(fallbackResponse.structuredContent, "Fallback response");
 
-  console.log("\nTest 4: Invalid and empty upstream paths fail explicitly");
+  console.log("\nTest 4: Error responses stay inside the declared outputSchema");
   const missingLocationHandler = createAnalyzeMarketHandler(createDependencies());
-  await assertRejects(
-    () => missingLocationHandler(undefined),
+  const missingLocationResponse = await missingLocationHandler(undefined);
+  assertErrorResponse(
+    missingLocationResponse,
+    "invalid_input",
     "location is required",
     "Missing location"
+  );
+  assertSchemaValid(
+    missingLocationResponse.structuredContent,
+    "Missing location response"
   );
 
   const noListingsHandler = createAnalyzeMarketHandler(
@@ -230,10 +284,16 @@ async function main() {
       scrapeAirbnbListings: async () => [],
     })
   );
-  await assertRejects(
-    () => noListingsHandler({ location: "Austin, TX" }),
+  const noListingsResponse = await noListingsHandler({ location: "Austin, TX" });
+  assertErrorResponse(
+    noListingsResponse,
+    "no_listings_found",
     "No Airbnb listings found",
     "Empty scrape result"
+  );
+  assertSchemaValid(
+    noListingsResponse.structuredContent,
+    "Empty scrape response"
   );
 
   const scrapeFailureHandler = createAnalyzeMarketHandler(
@@ -243,10 +303,18 @@ async function main() {
       },
     })
   );
-  await assertRejects(
-    () => scrapeFailureHandler({ location: "Austin, TX" }),
+  const scrapeFailureResponse = await scrapeFailureHandler({
+    location: "Austin, TX",
+  });
+  assertErrorResponse(
+    scrapeFailureResponse,
+    "upstream_unavailable",
     "Unable to fetch market data",
     "Scrape failure"
+  );
+  assertSchemaValid(
+    scrapeFailureResponse.structuredContent,
+    "Scrape failure response"
   );
 
   console.log("\nTest 5: Concurrent identical requests reuse the same scrape");
@@ -297,6 +365,8 @@ async function main() {
     firstRequest,
     secondRequest,
   ]);
+  assertSuccessResponse(firstConcurrentResponse, "First concurrent response");
+  assertSuccessResponse(secondConcurrentResponse, "Second concurrent response");
   assert(
     concurrentScrapeCalls === 1,
     "Concurrent identical requests trigger only one upstream scrape"

@@ -31,7 +31,7 @@ export const ANALYZE_STR_MARKET_INPUT_SCHEMA = {
   required: ["location"],
 };
 
-export const ANALYZE_STR_MARKET_OUTPUT_SCHEMA = {
+export const ANALYZE_STR_MARKET_SUCCESS_SCHEMA = {
   type: "object" as const,
   properties: {
     location: {
@@ -255,6 +255,49 @@ export const ANALYZE_STR_MARKET_OUTPUT_SCHEMA = {
     "amenityGapAnalysis",
     "topComparables",
     "investmentSummary",
+  ],
+};
+
+export const ANALYZE_STR_MARKET_ERROR_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    location: {
+      type: "string",
+      nullable: true,
+      description: "The requested location when available, otherwise null",
+    },
+    error: {
+      type: "object" as const,
+      properties: {
+        code: {
+          type: "string",
+          enum: [
+            "invalid_input",
+            "upstream_unavailable",
+            "no_listings_found",
+            "internal_error",
+          ],
+          description: "Stable machine-readable error code",
+        },
+        message: {
+          type: "string",
+          description: "Human-readable error message",
+        },
+        retryable: {
+          type: "boolean",
+          description: "Whether retrying later may succeed",
+        },
+      },
+      required: ["code", "message", "retryable"],
+    },
+  },
+  required: ["location", "error"],
+};
+
+export const ANALYZE_STR_MARKET_OUTPUT_SCHEMA = {
+  oneOf: [
+    ANALYZE_STR_MARKET_SUCCESS_SCHEMA,
+    ANALYZE_STR_MARKET_ERROR_SCHEMA,
   ],
 };
 

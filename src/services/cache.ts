@@ -74,7 +74,7 @@ async function cacheSet(key: string, value: string, ttlSeconds: number): Promise
 export interface CacheResult {
   listings: AirbnbListing[];
   dataFreshness: DataFreshness;
-  cachedAt: string | null;
+  cachedAt: string;
 }
 
 export async function getCachedListings(

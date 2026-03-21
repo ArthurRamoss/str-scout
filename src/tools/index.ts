@@ -49,9 +49,8 @@ export const TOOLS = [
         },
         cachedAt: {
           type: "string",
-          nullable: true,
           description:
-            "ISO timestamp of when data was cached, null if live",
+            "ISO timestamp of when data was scraped or last cached",
         },
         totalListingsAnalyzed: {
           type: "number",
@@ -301,7 +300,7 @@ export const TOOLS = [
     },
     _meta: {
       pricing: {
-        queryUsd: "0.10",
+        executeUsd: "0.10",
       },
       surface: "query",
       context: [

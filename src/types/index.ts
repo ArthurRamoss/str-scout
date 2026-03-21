@@ -185,7 +185,7 @@ export interface TopComparable {
 export interface MarketAnalysis {
   location: string;
   dataFreshness: DataFreshness;
-  cachedAt: string | null;
+  cachedAt: string;
   totalListingsAnalyzed: number;
   filteredListings: number;
   revenueEstimate: RevenueEstimate;

@@ -40,7 +40,7 @@ export async function handleAnalyzeMarket(
   // 1. Check cache
   let listings: AirbnbListing[];
   let dataFreshness: DataFreshness = "live";
-  let cachedAt: string | null = null;
+  let cachedAt: string = new Date().toISOString();
 
   const rawScrapeRequest = toRawScrapeRequest({
     location,
@@ -133,9 +133,12 @@ export async function handleAnalyzeMarket(
   // 7. Return in MCP format — structuredContent must match outputSchema exactly
   const textSummary = formatTextResponse(result);
 
+  // Force plain JSON — no class instances, no prototypes, no circular refs
+  const plainResult = JSON.parse(JSON.stringify(result));
+
   return {
     content: [{ type: "text", text: textSummary }],
-    structuredContent: result as unknown as Record<string, unknown>,
+    structuredContent: plainResult,
   };
 }
 

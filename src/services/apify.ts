@@ -5,7 +5,7 @@ import { resolveRawScrapeRequest, toRawScrapeRequest } from "./scrapeRequest.js"
 const PRIMARY_ACTOR = "curious_coder/airbnb-scraper";
 const FALLBACK_ACTOR = "memo23/airbnb-scraper";
 const APIFY_TIMEOUT = 300; // seconds
-const DEFAULT_COUNT = 30;
+const DEFAULT_COUNT = 15;
 
 let client: ApifyClient | null = null;
 

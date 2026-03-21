@@ -9,6 +9,7 @@
     "test:apify": "tsx src/tests/test-apify.ts",
     "test:analysis": "tsx src/tests/test-analysis.ts",
     "test:curious-coder": "tsx src/tests/test-curious-coder-format.ts",
+    "test:execute-report": "tsx src/tests/generate-execute-report.ts",
     "test:marketplace": "tsx src/tests/test-marketplace-validation.ts",
     "test": "tsx src/tests/test-analysis.ts && tsx src/tests/test-curious-coder-format.ts"
   },

@@ -315,7 +315,7 @@ export const TOOLS = [
       latencyClass: "slow",
       context: [
         "The tool requires a location string. For best results, include city + state for US locations (e.g., 'Austin, TX', 'Miami Beach, FL').",
-        "First query for a new location may take 20-30s while data is collected. Repeat queries are served from cache in under 2s.",
+        "The first query for a new location may still take tens of seconds while data is collected. Repeat queries are served from cache in under 2s.",
       ],
       smokeTestInput: {
         location: "Austin, TX",
@@ -325,7 +325,7 @@ export const TOOLS = [
         cooldownMs: 6000,
         maxConcurrency: 1,
         supportsBulk: false,
-        notes: "Uncached locations take 20-30s. Cached locations serve in <2s. Default location (Austin, TX) is pre-cached on boot.",
+        notes: "Uncached locations can take tens of seconds. Cached locations serve in <2s. Default location (Austin, TX) is pre-cached on boot.",
       },
     },
   },

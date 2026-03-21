@@ -4,7 +4,7 @@ import type { AirbnbListing, ScrapeOptions } from "../types/index.js";
 const PRIMARY_ACTOR = "curious_coder/airbnb-scraper";
 const FALLBACK_ACTOR = "memo23/airbnb-scraper";
 const APIFY_TIMEOUT = 300; // seconds
-const DEFAULT_COUNT = 100;
+const DEFAULT_COUNT = 50;
 
 let client: ApifyClient | null = null;
 

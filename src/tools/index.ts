@@ -10,6 +10,7 @@ export const TOOLS = [
           type: "string",
           description:
             "City, neighborhood, or address to analyze (e.g., 'Austin, TX', 'Miami Beach, FL', 'Williamsburg, Brooklyn')",
+          default: "Austin, TX",
         },
         propertyType: {
           type: "string",
@@ -297,17 +298,21 @@ export const TOOLS = [
       ],
     },
     _meta: {
-      pricing: { responseUsd: "0.15" },
+      pricing: { responseUsd: "0.10" },
       surface: "query",
       context: [
         "The tool requires a location string. For best results, include city + state for US locations.",
+        "First query for a new location takes ~45-60s (live Apify scrape). Subsequent queries for the same location are served from cache in <2s.",
       ],
+      smokeTestInput: {
+        location: "Austin, TX",
+      },
       rateLimit: {
         maxRequestsPerMinute: 10,
         cooldownMs: 6000,
         maxConcurrency: 1,
         supportsBulk: false,
-        notes: "Apify scraper has ~45s latency. Cache serves in <2s.",
+        notes: "Apify scraper has ~45-60s latency for uncached locations. Cache serves in <2s. Default location (Austin, TX) is pre-cached on boot.",
       },
     },
   },

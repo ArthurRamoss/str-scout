@@ -85,6 +85,7 @@ app.post("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
     // New session
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
+      enableJsonResponse: true,
       onsessioninitialized: (id) => {
         transports[id] = transport;
         console.log(`[mcp] Session initialized: ${id}`);
@@ -123,12 +124,50 @@ app.get("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
 });
 
 // ==========================================
+// Warm-up endpoint — pre-seed cache for smoke tests
+// ==========================================
+
+app.post("/warmup", async (_req: Request, res: Response) => {
+  const { handleAnalyzeMarket: warmupHandler } = await import("./tools/analyzeMarket.js");
+  const location = "Austin, TX";
+  console.log(`[warmup] Pre-seeding cache for "${location}"...`);
+  try {
+    await warmupHandler({ location });
+    res.json({ status: "ok", location, message: "Cache seeded" });
+  } catch (err: any) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// ==========================================
 // Start server
 // ==========================================
 
 const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`STR Scout running on port ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
   console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
 });
+
+// Allow long-running requests (Apify scrape can take up to 120s)
+server.setTimeout(300_000);
+
+// Auto warm-up: pre-seed cache on boot so smoke tests hit cache (<2s)
+const WARMUP_LOCATION = "Austin, TX";
+setTimeout(async () => {
+  const { getCachedListings } = await import("./services/cache.js");
+  const cached = await getCachedListings(WARMUP_LOCATION);
+  if (cached) {
+    console.log(`[warmup] Cache already seeded for "${WARMUP_LOCATION}" (${cached.listings.length} listings)`);
+    return;
+  }
+  console.log(`[warmup] Auto-seeding cache for "${WARMUP_LOCATION}"...`);
+  try {
+    const { handleAnalyzeMarket: warmupHandler } = await import("./tools/analyzeMarket.js");
+    await warmupHandler({ location: WARMUP_LOCATION });
+    console.log(`[warmup] Cache seeded for "${WARMUP_LOCATION}" ✓`);
+  } catch (err: any) {
+    console.warn(`[warmup] Failed to seed cache: ${err.message}`);
+  }
+}, 2000); // 2s after boot to let Redis connect first

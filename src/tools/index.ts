@@ -11,26 +11,35 @@ export const TOOLS = [
           description:
             "City, neighborhood, or address to analyze (e.g., 'Austin, TX', 'Miami Beach, FL', 'Williamsburg, Brooklyn')",
           default: "Austin, TX",
+          examples: ["Austin, TX", "Miami Beach, FL", "Nashville, TN"],
         },
         propertyType: {
           type: "string",
           description: "Type of property to analyze",
           enum: ["entire_home", "private_room", "any"],
           default: "entire_home",
+          examples: ["entire_home", "private_room"],
         },
         bedrooms: {
           type: "number",
-          description: "Number of bedrooms to filter for. Use 0 for studio.",
+          description:
+            "Minimum number of bedrooms to require in the market search. Use 0 for studio-oriented searches.",
+          minimum: 0,
+          examples: [0, 1, 2],
         },
         checkIn: {
           type: "string",
+          format: "date",
           description:
             "Optional check-in date for seasonal pricing analysis (ISO format YYYY-MM-DD)",
+          examples: ["2026-05-15"],
         },
         checkOut: {
           type: "string",
+          format: "date",
           description:
             "Optional check-out date for seasonal pricing analysis (ISO format YYYY-MM-DD)",
+          examples: ["2026-05-18"],
         },
       },
       required: ["location"],
@@ -49,6 +58,7 @@ export const TOOLS = [
         },
         cachedAt: {
           type: "string",
+          format: "date-time",
           description:
             "ISO timestamp of when data was scraped or last cached",
         },
@@ -241,6 +251,7 @@ export const TOOLS = [
               },
               url: {
                 type: "string",
+                format: "uri",
                 description: "Airbnb listing URL",
               },
               pricePerNight: {
@@ -302,10 +313,6 @@ export const TOOLS = [
       surface: "both",
       queryEligible: true,
       latencyClass: "slow",
-      pricing: {
-        queryUsd: "0.10",
-        executeUsd: "0.002",
-      },
       context: [
         "The tool requires a location string. For best results, include city + state for US locations (e.g., 'Austin, TX', 'Miami Beach, FL').",
         "First query for a new location may take 20-30s while data is collected. Repeat queries are served from cache in under 2s.",

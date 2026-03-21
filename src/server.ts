@@ -24,6 +24,7 @@ import {
 import { createContextMiddleware } from "@ctxprotocol/sdk";
 import { TOOLS } from "./tools/index.js";
 import { handleAnalyzeMarket } from "./tools/analyzeMarket.js";
+import type { MarketAnalysis } from "./types/index.js";
 
 // ============================================================================
 // RESPONSE HELPERS
@@ -33,9 +34,33 @@ import { handleAnalyzeMarket } from "./tools/analyzeMarket.js";
 // - structuredContent: Machine-readable data matching outputSchema
 // ============================================================================
 
+function formatMarketAnalysisContent(data: MarketAnalysis): string {
+  const occupancyPercent = Math.round(data.occupancyEstimate.estimatedRate * 100);
+  const amenityList =
+    data.amenityGapAnalysis.recommendedAmenities.slice(0, 3).join(", ") || "none identified";
+
+  return [
+    `Market: ${data.location}`,
+    data.investmentSummary,
+    `Revenue estimate: $${data.revenueEstimate.lowEstimate.toLocaleString()}-$${data.revenueEstimate.highEstimate.toLocaleString()}/year (${data.revenueEstimate.confidenceLevel} confidence)`,
+    `ADR: $${data.averageDailyRate.median}/night | Occupancy: ${occupancyPercent}% | Saturation: ${data.competitiveSaturation.label} (${data.competitiveSaturation.score}/100)`,
+    `Listings analyzed: ${data.filteredListings} filtered / ${data.totalListingsAnalyzed} total | Data freshness: ${data.dataFreshness}`,
+    `Amenity opportunities: ${amenityList}`,
+  ].join("\n");
+}
+
 function successResult(data: Record<string, unknown>): CallToolResult {
+  const content =
+    "investmentSummary" in data &&
+    "revenueEstimate" in data &&
+    "averageDailyRate" in data &&
+    "occupancyEstimate" in data &&
+    "competitiveSaturation" in data
+      ? formatMarketAnalysisContent(data as unknown as MarketAnalysis)
+      : JSON.stringify(data, null, 2);
+
   return {
-    content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+    content: [{ type: "text", text: content }],
     structuredContent: data,
   };
 }
@@ -183,16 +208,20 @@ app.delete("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
 // Warm-up endpoint — pre-seed cache for smoke tests
 // ============================================================================
 
-app.post("/warmup", async (_req: Request, res: Response) => {
-  const location = "Austin, TX";
-  console.log(`[warmup] Pre-seeding cache for "${location}"...`);
-  try {
-    await handleAnalyzeMarket({ location });
-    res.json({ status: "ok", location, message: "Cache seeded" });
-  } catch (err: any) {
-    res.status(500).json({ status: "error", message: err.message });
-  }
-});
+const ENABLE_WARMUP_ENDPOINT = process.env.ENABLE_WARMUP_ENDPOINT === "true";
+
+if (ENABLE_WARMUP_ENDPOINT) {
+  app.post("/warmup", async (_req: Request, res: Response) => {
+    const location = "Austin, TX";
+    console.log(`[warmup] Pre-seeding cache for "${location}"...`);
+    try {
+      await handleAnalyzeMarket({ location });
+      res.json({ status: "ok", location, message: "Cache seeded" });
+    } catch (err: any) {
+      res.status(500).json({ status: "error", message: err.message });
+    }
+  });
+}
 
 // ============================================================================
 // Start server

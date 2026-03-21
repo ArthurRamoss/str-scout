@@ -7,6 +7,8 @@ import type {
   AmenityGapAnalysis,
   AmenityGapItem,
   TopComparable,
+  FlatAmenity,
+  BadgeObject,
 } from "../types/index.js";
 
 // ==========================================
@@ -32,64 +34,99 @@ function mean(arr: number[]): number {
 }
 
 // ==========================================
+// Extract nights from curious_coder dates field
+// e.g. "Mar 21 – 26" => 5, "Mar 25 – 30" => 5
+// ==========================================
+
+const MONTH_DAYS: Record<string, number> = {
+  jan: 31, feb: 29, mar: 31, apr: 30, may: 31, jun: 30,
+  jul: 31, aug: 31, sep: 30, oct: 31, nov: 30, dec: 31,
+};
+
+function extractNightsFromDates(dates?: string): number {
+  if (!dates) return 0;
+  // Format: "Mar 21 – 26" or "Mar 28 – Apr 2"
+  const match = dates.match(/([A-Za-z]+)\s+(\d+)\s*[–-]\s*(?:([A-Za-z]+)\s+)?(\d+)/);
+  if (!match) return 0;
+  const startDay = parseInt(match[2]);
+  const endDay = parseInt(match[4]);
+  if (match[3]) {
+    // Cross-month: "Mar 28 – Apr 2"
+    const startMonth = match[1].toLowerCase().slice(0, 3);
+    const daysInStartMonth = MONTH_DAYS[startMonth] || 30;
+    return (daysInStartMonth - startDay) + endDay;
+  }
+  // Same month: "Mar 21 – 26"
+  return endDay - startDay;
+}
+
+// ==========================================
 // Extract price from listing
+// Supports: curious_coder (primary) + memo23 (fallback)
 // ==========================================
 
 function extractPrice(listing: AirbnbListing): number | null {
-  // tri_angle/airbnb-scraper detailed format
-  if (listing.price?.amount) {
-    const num = parseFloat(listing.price.amount.replace(/[^0-9.]/g, ""));
-    if (!isNaN(num) && num > 0) return num;
+  // memo23: pricing_base_price is per-night (number)
+  if (typeof listing.pricing_base_price === "number" && listing.pricing_base_price > 0) {
+    return listing.pricing_base_price;
   }
-  if (listing.price?.label) {
-    const match = listing.price.label.match(/\$?([\d,]+)/);
+  // memo23: pricing_discounted_price (if discounted)
+  if (typeof listing.pricing_discounted_price === "number" && listing.pricing_discounted_price > 0) {
+    return listing.pricing_discounted_price;
+  }
+  // curious_coder: price is a string like "$918" (total for stay)
+  if (typeof listing.price === "string") {
+    const match = listing.price.match(/\$?([\d,]+)/);
     if (match) {
-      const num = parseFloat(match[1].replace(/,/g, ""));
-      if (!isNaN(num) && num > 0) return num;
+      const total = parseFloat(match[1].replace(/,/g, ""));
+      if (total > 0) {
+        // Calculate per-night from total and dates
+        const nights = extractNightsFromDates(listing.dates);
+        if (nights > 0) return Math.round(total / nights);
+        return total; // fallback: use total as-is
+      }
     }
-  }
-  // Other scraper formats
-  if (typeof listing.pricing === "number" && listing.pricing > 0) {
-    return listing.pricing;
-  }
-  if (listing.pricing?.rate?.amount) {
-    return listing.pricing.rate.amount;
   }
   return null;
 }
 
 // ==========================================
 // Extract review count
+// Supports: curious_coder (primary) + memo23 (fallback)
 // ==========================================
 
 function extractReviewCount(listing: AirbnbListing): number {
-  if (listing.rating?.reviewsCount) return listing.rating.reviewsCount;
+  // curious_coder: reviewsCount (direct number)
   if (listing.reviewsCount) return listing.reviewsCount;
+  // memo23: review_count (snake_case)
+  if (listing.review_count) return listing.review_count;
   return 0;
 }
 
 // ==========================================
 // Extract rating
+// Supports: curious_coder (primary) + memo23 (fallback)
 // ==========================================
 
 function extractRating(listing: AirbnbListing): number {
-  if (listing.rating?.guestSatisfaction) return listing.rating.guestSatisfaction;
-  if (listing.rating && typeof (listing.rating as any).overall === "number") {
-    return (listing.rating as any).overall;
+  // curious_coder: starRating is a direct number (e.g., 4.7)
+  if (typeof listing.starRating === "number" && listing.starRating > 0) {
+    return listing.starRating;
   }
-  // Average of detailed ratings
-  const r = listing.rating;
-  if (r) {
-    const values = [r.accuracy, r.cleanliness, r.communication, r.location, r.value].filter(
-      (v): v is number => typeof v === "number"
-    );
-    if (values.length > 0) return mean(values);
+  // memo23: review_overall_rating (0-5 scale)
+  if (typeof listing.review_overall_rating === "number" && listing.review_overall_rating > 0) {
+    return listing.review_overall_rating;
+  }
+  // memo23: review_guest_satisfaction_overall
+  if (typeof listing.review_guest_satisfaction_overall === "number" && listing.review_guest_satisfaction_overall > 0) {
+    return listing.review_guest_satisfaction_overall;
   }
   return 0;
 }
 
 // ==========================================
 // Filter listings by property type
+// Supports: curious_coder (primary) + memo23 (fallback)
 // ==========================================
 
 function filterByPropertyType(
@@ -99,7 +136,9 @@ function filterByPropertyType(
   if (propertyType === "any") return listings;
 
   return listings.filter((l) => {
-    const rt = (l.roomType || l.type || "").toLowerCase();
+    // memo23: room_type ("Entire home/apt") or property_type ("Entire rental unit")
+    // curious_coder: title ("Entire rental unit in Austin, Texas")
+    const rt = (l.room_type || l.property_type || l.roomType || l.type || l.title || "").toLowerCase();
     if (propertyType === "entire_home") {
       return rt.includes("entire") || rt.includes("home") || rt.includes("apt");
     }
@@ -244,12 +283,20 @@ export function calculateSaturation(
     (ratings.filter((r) => r >= 4.8).length / Math.max(ratings.length, 1)) * 100;
 
   // Guest Favorites (superhost or badge)
-  const guestFavorites = listings.filter(
-    (l) =>
-      l.isSuperHost ||
-      l.host?.isSuperHost ||
-      (l.badges && l.badges.some((b) => b.toLowerCase().includes("favorite")))
-  );
+  const guestFavorites = listings.filter((l) => {
+    // curious_coder: hostDetails.isSuperhost (lowercase h)
+    if (l.hostDetails?.isSuperhost) return true;
+    // memo23: host_is_superhost (snake_case)
+    if (l.host_is_superhost) return true;
+    // memo23: sbui_is_guest_favorite (direct boolean)
+    if (l.sbui_is_guest_favorite) return true;
+    // badges: string[] or BadgeObject[] (curious_coder uses objects)
+    if (l.badges && l.badges.some((b) => {
+      const label = typeof b === "string" ? b : (b as BadgeObject).label;
+      return label?.toLowerCase().includes("favorite");
+    })) return true;
+    return false;
+  });
   const guestFavoritePercent = (guestFavorites.length / total) * 100;
 
   // Price spread (tighter = more competitive)
@@ -328,9 +375,10 @@ const HIGH_VALUE_AMENITIES = [
 ];
 
 export function analyzeAmenities(listings: AirbnbListing[]): AmenityGapAnalysis {
-  // Only analyze listings with structured amenity data
+  // Only analyze listings with amenity data
   const withAmenities = listings.filter(
-    (l) => l.amenities && Array.isArray(l.amenities) && l.amenities.length > 0
+    (l) => (l.amenities && Array.isArray(l.amenities) && l.amenities.length > 0) ||
+           (l.amenities_structured && Array.isArray(l.amenities_structured) && l.amenities_structured.length > 0)
   );
 
   if (withAmenities.length < 5) {
@@ -362,13 +410,28 @@ export function analyzeAmenities(listings: AirbnbListing[]): AmenityGapAnalysis 
   function countAmenities(group: AirbnbListing[]): Map<string, number> {
     const counts = new Map<string, number>();
     for (const listing of group) {
-      if (!listing.amenities) continue;
-      const allAmenities = listing.amenities
-        .flatMap((cat) => cat.values)
-        .filter((v) => v.available === true)
-        .map((v) => v.title);
+      let amenityTitles: string[] = [];
 
-      for (const amenity of allAmenities) {
+      if (listing.amenities && Array.isArray(listing.amenities) && listing.amenities.length > 0) {
+        const first = listing.amenities[0];
+        if (typeof first === "string") {
+          // memo23: simple string array ["Wifi", "Kitchen", "Pool"]
+          amenityTitles = listing.amenities as string[];
+        } else if (typeof first === "object" && first !== null && "groupName" in first) {
+          // curious_coder: flat format [{groupName, title, available}]
+          amenityTitles = (listing.amenities as FlatAmenity[])
+            .filter((a) => a.available === true)
+            .map((a) => a.title);
+        }
+      } else if (listing.amenities_structured && listing.amenities_structured.length > 0) {
+        // memo23: structured format [{category, items: [{title, available}]}]
+        amenityTitles = listing.amenities_structured
+          .flatMap((cat) => cat.items)
+          .filter((item) => item.available === true)
+          .map((item) => item.title);
+      }
+
+      for (const amenity of amenityTitles) {
         counts.set(amenity, (counts.get(amenity) || 0) + 1);
       }
     }
@@ -422,15 +485,16 @@ export function getTopComparables(
     .slice(0, limit);
 
   return scored.map((s) => ({
-    name: s.listing.title || s.listing.name || "Unnamed Listing",
-    url: s.listing.url || `https://www.airbnb.com/rooms/${s.listing.id || ""}`,
+    name: s.listing.title || s.listing.property_name || s.listing.name || "Unnamed Listing",
+    url: s.listing.listing_url || s.listing.propertyUrl || s.listing.url || `https://www.airbnb.com/rooms/${s.listing.id || ""}`,
     pricePerNight: s.price!,
     rating: Math.round(extractRating(s.listing) * 100) / 100,
     reviewCount: extractReviewCount(s.listing),
-    roomType: s.listing.roomType || s.listing.type || "unknown",
+    roomType: s.listing.room_type || s.listing.property_type || s.listing.roomType || s.listing.type || "unknown",
     isGuestFavorite:
-      s.listing.isSuperHost ||
-      s.listing.host?.isSuperHost ||
+      s.listing.hostDetails?.isSuperhost ||
+      s.listing.host_is_superhost ||
+      s.listing.sbui_is_guest_favorite ||
       false,
   }));
 }

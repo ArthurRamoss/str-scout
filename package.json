@@ -7,7 +7,9 @@
     "start": "tsx src/server.ts",
     "build": "tsc",
     "test:apify": "tsx src/tests/test-apify.ts",
-    "test:analysis": "tsx src/tests/test-analysis.ts"
+    "test:analysis": "tsx src/tests/test-analysis.ts",
+    "test:curious-coder": "tsx src/tests/test-curious-coder-format.ts",
+    "test": "tsx src/tests/test-analysis.ts && tsx src/tests/test-curious-coder-format.ts"
   },
   "dependencies": {
     "@ctxprotocol/sdk": "^0.9.0",

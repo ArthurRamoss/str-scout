@@ -1,20 +1,7 @@
 // ==========================================
-// Raw Airbnb Listing — supports both curious_coder (primary)
-// and tri_angle/memo23 (fallback) data formats
+// Raw Airbnb Listing — supports curious_coder (primary)
+// and memo23 (fallback) data formats
 // ==========================================
-
-// tri_angle amenity format: categories with nested values
-export interface AmenityCategory {
-  title: string;
-  values: AmenityValue[];
-}
-
-export interface AmenityValue {
-  title: string;
-  subtitle?: string;
-  icon?: string;
-  available: boolean | "";
-}
 
 // curious_coder amenity format: flat list with groupName
 export interface FlatAmenity {
@@ -24,30 +11,23 @@ export interface FlatAmenity {
   subTitle?: string;
 }
 
-// tri_angle rating object
-export interface ListingRating {
-  accuracy?: number;
-  checking?: number;
-  cleanliness?: number;
-  communication?: number;
-  location?: number;
-  value?: number;
-  guestSatisfaction?: number;
-  reviewsCount: number;
+// memo23 structured amenity format
+export interface Memo23AmenityItem {
+  title: string;
+  subtitle?: string;
+  icon?: string;
+  available: boolean;
+}
+
+export interface Memo23AmenityCategory {
+  category: string;
+  items: Memo23AmenityItem[];
 }
 
 // curious_coder rating item
 export interface RatingItem {
   category: string;
   score: string | number;
-}
-
-// tri_angle host
-export interface ListingHost {
-  id?: string;
-  name?: string;
-  isSuperHost?: boolean;
-  highlights?: string[];
 }
 
 // curious_coder host
@@ -61,19 +41,7 @@ export interface HostDetails {
   profileUrl?: string;
 }
 
-// tri_angle price object
-export interface ListingPrice {
-  label?: string;
-  amount?: string;
-  qualifier?: string;
-  breakDown?: {
-    basePrice?: { description: string; price: string };
-    serviceFee?: { description: string; price: string };
-    totalBeforeTaxes?: { description: string; price: string };
-  };
-}
-
-// Badge can be string (tri_angle) or object (curious_coder)
+// Badge object (curious_coder)
 export interface BadgeObject {
   type: string;
   label: string;
@@ -83,20 +51,12 @@ export interface AirbnbListing {
   id?: string;
   title?: string;
 
-  // === tri_angle / generic fields ===
+  // === Generic fields ===
   url?: string;
   name?: string;
   roomType?: string;
   type?: string;
-  coordinates?: { latitude: number; longitude: number };
-  personCapacity?: number;
-  isSuperHost?: boolean;
-  rating?: ListingRating;
-  subDescription?: { title?: string; items?: string[] };
-  host?: ListingHost;
   pricing?: any;
-  highlights?: Array<{ title: string; subtitle?: string }>;
-  images?: any[];
 
   // === curious_coder-specific fields ===
   propertyUrl?: string;
@@ -117,9 +77,29 @@ export interface AirbnbListing {
   description?: string;
   houseRules?: Array<{ title: string }>;
 
+  // === memo23-specific fields (snake_case) ===
+  property_type?: string;
+  room_type?: string;
+  listing_url?: string;
+  property_name?: string;
+  review_count?: number;
+  review_overall_rating?: number;
+  review_guest_satisfaction_overall?: number;
+  host_is_superhost?: boolean;
+  host_name?: string;
+  pricing_base_price?: number;
+  pricing_discounted_price?: number;
+  pricing_total_price?: number;
+  pricing_currency?: string;
+  accommodation_guests?: number;
+  accommodation_bedrooms?: number;
+  sbui_is_guest_favorite?: boolean;
+  // memo23 amenities: simple string[] OR structured Memo23AmenityCategory[]
+  amenities_structured?: Memo23AmenityCategory[];
+
   // === Union fields (differ per scraper) ===
-  price?: ListingPrice | string;
-  amenities?: AmenityCategory[] | FlatAmenity[];
+  price?: string; // curious_coder: "$918" total string
+  amenities?: FlatAmenity[] | string[]; // curious_coder: FlatAmenity[], memo23: string[]
   badges?: string[] | BadgeObject[];
 }
 

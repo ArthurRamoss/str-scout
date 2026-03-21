@@ -1,167 +1,104 @@
 import { analyzeMarketData } from "../services/analysis.js";
 import type { AirbnbListing } from "../types/index.js";
 
-// Mock listings based on tri_angle/airbnb-scraper detailed format
+// Mock listings using memo23 format (fallback scraper)
 const mockListings: AirbnbListing[] = [
   {
     id: "1001",
-    url: "https://www.airbnb.com/rooms/1001",
+    listing_url: "https://www.airbnb.com/rooms/1001",
     title: "Modern Downtown Loft",
-    roomType: "Entire home/apt",
-    coordinates: { latitude: 30.267, longitude: -97.743 },
-    personCapacity: 4,
-    isSuperHost: true,
-    rating: {
-      accuracy: 4.9,
-      checking: 4.95,
-      cleanliness: 4.85,
-      communication: 4.9,
-      location: 4.95,
-      value: 4.7,
-      guestSatisfaction: 4.88,
-      reviewsCount: 245,
-    },
-    subDescription: { title: "Entire rental unit", items: ["4 guests", "2 bedrooms", "2 beds", "1 bath"] },
-    amenities: [
-      { title: "Kitchen and dining", values: [{ title: "Kitchen", available: true }, { title: "Refrigerator", available: true }] },
-      { title: "Internet and office", values: [{ title: "Wifi", available: true }] },
-      { title: "Outdoor", values: [{ title: "Pool", available: true }, { title: "Hot tub", available: true }, { title: "BBQ grill", available: true }] },
-      { title: "Bedroom and laundry", values: [{ title: "Washer", available: true }, { title: "Dryer", available: true }] },
-      { title: "Heating and cooling", values: [{ title: "Air conditioning", available: true }] },
-    ],
-    host: { id: "h1", name: "Sarah", isSuperHost: true, highlights: ["5 years hosting"] },
-    price: { label: "$189 per night", amount: "$189", qualifier: "night" },
+    property_name: "Modern Downtown Loft",
+    room_type: "Entire home/apt",
+    property_type: "Entire rental unit",
+    review_overall_rating: 4.88,
+    review_count: 245,
+    host_is_superhost: true,
+    host_name: "Sarah",
+    sbui_is_guest_favorite: true,
+    pricing_base_price: 189,
+    pricing_currency: "USD",
+    accommodation_guests: 4,
+    accommodation_bedrooms: 2,
+    amenities: ["Kitchen", "Refrigerator", "Wifi", "Pool", "Hot tub", "BBQ grill", "Washer", "Dryer", "Air conditioning"],
   },
   {
     id: "1002",
-    url: "https://www.airbnb.com/rooms/1002",
+    listing_url: "https://www.airbnb.com/rooms/1002",
     title: "Cozy East Side Bungalow",
-    roomType: "Entire home/apt",
-    coordinates: { latitude: 30.259, longitude: -97.723 },
-    personCapacity: 3,
-    isSuperHost: false,
-    rating: {
-      accuracy: 4.6,
-      checking: 4.7,
-      cleanliness: 4.5,
-      communication: 4.7,
-      location: 4.8,
-      value: 4.3,
-      guestSatisfaction: 4.6,
-      reviewsCount: 87,
-    },
-    subDescription: { title: "Entire rental unit", items: ["3 guests", "1 bedroom", "1 bed", "1 bath"] },
-    amenities: [
-      { title: "Kitchen and dining", values: [{ title: "Kitchen", available: true }] },
-      { title: "Internet and office", values: [{ title: "Wifi", available: true }] },
-      { title: "Heating and cooling", values: [{ title: "Air conditioning", available: "" as any }] },
-      { title: "Bedroom and laundry", values: [{ title: "Washer", available: true }] },
-    ],
-    host: { id: "h2", name: "Mike", isSuperHost: false },
-    price: { label: "$129 per night", amount: "$129", qualifier: "night" },
+    property_name: "Cozy East Side Bungalow",
+    room_type: "Entire home/apt",
+    property_type: "Entire rental unit",
+    review_overall_rating: 4.6,
+    review_count: 87,
+    host_is_superhost: false,
+    host_name: "Mike",
+    pricing_base_price: 129,
+    pricing_currency: "USD",
+    accommodation_guests: 3,
+    accommodation_bedrooms: 1,
+    amenities: ["Kitchen", "Wifi", "Washer"],
   },
   {
     id: "1003",
-    url: "https://www.airbnb.com/rooms/1003",
+    listing_url: "https://www.airbnb.com/rooms/1003",
     title: "Luxury Lakefront Villa",
-    roomType: "Entire home/apt",
-    coordinates: { latitude: 30.285, longitude: -97.751 },
-    personCapacity: 8,
-    isSuperHost: true,
-    rating: {
-      accuracy: 4.95,
-      checking: 4.9,
-      cleanliness: 4.95,
-      communication: 4.95,
-      location: 5.0,
-      value: 4.8,
-      guestSatisfaction: 4.93,
-      reviewsCount: 412,
-    },
-    subDescription: { title: "Entire home", items: ["8 guests", "4 bedrooms", "5 beds", "3 bath"] },
-    amenities: [
-      { title: "Kitchen and dining", values: [{ title: "Kitchen", available: true }, { title: "Coffee maker", available: true }] },
-      { title: "Internet and office", values: [{ title: "Wifi", available: true }] },
-      { title: "Outdoor", values: [{ title: "Pool", available: true }, { title: "Hot tub", available: true }, { title: "Fire pit", available: true }, { title: "Patio or balcony", available: true }, { title: "BBQ grill", available: true }] },
-      { title: "Bedroom and laundry", values: [{ title: "Washer", available: true }, { title: "Dryer", available: true }] },
-      { title: "Heating and cooling", values: [{ title: "Air conditioning", available: true }] },
-      { title: "Parking", values: [{ title: "Free parking on premises", available: true }] },
-    ],
-    host: { id: "h3", name: "The Austin Collection", isSuperHost: true, highlights: ["8 years hosting"] },
-    price: { label: "$349 per night", amount: "$349", qualifier: "night" },
+    property_name: "Luxury Lakefront Villa",
+    room_type: "Entire home/apt",
+    property_type: "Entire home",
+    review_overall_rating: 4.93,
+    review_count: 412,
+    host_is_superhost: true,
+    host_name: "The Austin Collection",
+    sbui_is_guest_favorite: true,
+    pricing_base_price: 349,
+    pricing_currency: "USD",
+    accommodation_guests: 8,
+    accommodation_bedrooms: 4,
+    amenities: ["Kitchen", "Coffee maker", "Wifi", "Pool", "Hot tub", "Fire pit", "Patio or balcony", "BBQ grill", "Washer", "Dryer", "Air conditioning", "Free parking on premises"],
   },
   {
     id: "1004",
-    url: "https://www.airbnb.com/rooms/1004",
+    listing_url: "https://www.airbnb.com/rooms/1004",
     title: "Hip SoCo Studio",
-    roomType: "Entire home/apt",
-    coordinates: { latitude: 30.248, longitude: -97.751 },
-    personCapacity: 2,
-    rating: {
-      accuracy: 4.7,
-      checking: 4.8,
-      cleanliness: 4.6,
-      communication: 4.8,
-      location: 4.9,
-      value: 4.5,
-      guestSatisfaction: 4.72,
-      reviewsCount: 156,
-    },
-    amenities: [
-      { title: "Kitchen and dining", values: [{ title: "Kitchen", available: true }] },
-      { title: "Internet and office", values: [{ title: "Wifi", available: true }] },
-      { title: "Heating and cooling", values: [{ title: "Air conditioning", available: true }] },
-      { title: "Parking", values: [{ title: "Free parking on premises", available: true }] },
-    ],
-    host: { id: "h4", name: "Jesse" },
-    price: { label: "$159 per night", amount: "$159", qualifier: "night" },
+    room_type: "Entire home/apt",
+    review_overall_rating: 4.72,
+    review_count: 156,
+    pricing_base_price: 159,
+    pricing_currency: "USD",
+    accommodation_guests: 2,
+    accommodation_bedrooms: 0,
+    amenities: ["Kitchen", "Wifi", "Air conditioning", "Free parking on premises"],
   },
   {
     id: "1005",
-    url: "https://www.airbnb.com/rooms/1005",
+    listing_url: "https://www.airbnb.com/rooms/1005",
     title: "Private Room in Central Austin",
-    roomType: "Private room",
-    coordinates: { latitude: 30.27, longitude: -97.74 },
-    personCapacity: 1,
-    rating: {
-      accuracy: 4.5,
-      checking: 4.6,
-      cleanliness: 4.4,
-      communication: 4.6,
-      location: 4.7,
-      value: 4.8,
-      guestSatisfaction: 4.6,
-      reviewsCount: 52,
-    },
-    amenities: [
-      { title: "Internet and office", values: [{ title: "Wifi", available: true }] },
-      { title: "Heating and cooling", values: [{ title: "Air conditioning", available: true }] },
-    ],
-    host: { id: "h5", name: "Rachel" },
-    price: { label: "$65 per night", amount: "$65", qualifier: "night" },
+    room_type: "Private room",
+    review_overall_rating: 4.6,
+    review_count: 52,
+    pricing_base_price: 65,
+    pricing_currency: "USD",
+    accommodation_guests: 1,
+    amenities: ["Wifi", "Air conditioning"],
   },
   // Additional listings for meaningful sample size
   ...Array.from({ length: 15 }, (_, i) => ({
     id: `200${i}`,
-    url: `https://www.airbnb.com/rooms/200${i}`,
+    listing_url: `https://www.airbnb.com/rooms/200${i}`,
     title: `Austin Listing ${i + 6}`,
-    roomType: "Entire home/apt",
-    coordinates: { latitude: 30.26 + Math.random() * 0.04, longitude: -97.75 + Math.random() * 0.04 },
-    personCapacity: 2 + Math.floor(Math.random() * 6),
-    rating: {
-      guestSatisfaction: 4.2 + Math.random() * 0.7,
-      reviewsCount: 20 + Math.floor(Math.random() * 300),
-    },
+    room_type: "Entire home/apt" as const,
+    review_overall_rating: 4.2 + Math.random() * 0.7,
+    review_count: 20 + Math.floor(Math.random() * 300),
+    pricing_base_price: 100 + Math.floor(Math.random() * 200),
+    pricing_currency: "USD",
+    accommodation_guests: 2 + Math.floor(Math.random() * 6),
     amenities: [
-      { title: "Internet", values: [{ title: "Wifi", available: true as const }] },
-      { title: "Kitchen", values: [{ title: "Kitchen", available: (Math.random() > 0.3) as unknown as true }] },
-      { title: "Outdoor", values: [
-        { title: "Pool", available: (Math.random() > 0.6) as unknown as true },
-        { title: "Hot tub", available: (Math.random() > 0.7) as unknown as true },
-      ]},
-      { title: "Heating", values: [{ title: "Air conditioning", available: (Math.random() > 0.2) as unknown as true }] },
+      "Wifi",
+      ...(Math.random() > 0.3 ? ["Kitchen"] : []),
+      ...(Math.random() > 0.6 ? ["Pool"] : []),
+      ...(Math.random() > 0.7 ? ["Hot tub"] : []),
+      "Air conditioning",
     ],
-    price: { amount: `$${100 + Math.floor(Math.random() * 200)}`, label: `$${100 + Math.floor(Math.random() * 200)} per night` },
   })),
 ];
 
@@ -183,7 +120,7 @@ function assert(condition: boolean, msg: string) {
 }
 
 async function main() {
-  console.log("STR Scout — Analysis Engine Tests");
+  console.log("STR Scout — Analysis Engine Tests (memo23 format)");
   console.log(`Mock listings: ${mockListings.length}\n`);
 
   // Test 1: Full analysis with entire_home filter
@@ -219,7 +156,7 @@ async function main() {
   assert(result.saturation.totalListings > 0, `totalListings > 0 (${result.saturation.totalListings})`);
   assert(result.saturation.averageRating > 0, `averageRating > 0 (${result.saturation.averageRating})`);
 
-  // Test 6: Amenity gap
+  // Test 6: Amenity gap (memo23 uses string arrays)
   console.log("\nTest 6: Amenity gap analysis");
   assert(result.amenityGap.topPerformerAmenities.length > 0, `Has amenity data (${result.amenityGap.topPerformerAmenities.length} items)`);
   for (const item of result.amenityGap.topPerformerAmenities.slice(0, 3)) {
@@ -252,6 +189,10 @@ async function main() {
   const emptyResult = analyzeMarketData([], "any");
   assert(emptyResult.revenue.lowEstimate === 0, `Empty returns 0 revenue`);
   assert(emptyResult.saturation.score === 0, `Empty returns 0 saturation`);
+
+  // Test 11: Guest favorites via memo23 fields
+  console.log("\nTest 11: Guest favorites detection (memo23)");
+  assert(result.saturation.guestFavoritePercent > 0, `Guest favorites detected (${result.saturation.guestFavoritePercent}%)`);
 
   // Summary
   console.log("\n" + "=".repeat(50));

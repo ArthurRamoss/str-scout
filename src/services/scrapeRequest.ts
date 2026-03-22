@@ -5,6 +5,7 @@ export interface RawScrapeRequest {
   minBedrooms?: number;
   checkIn?: string;
   checkOut?: string;
+  propertyType?: string;
 }
 
 export interface ResolvedRawScrapeRequest {
@@ -29,6 +30,7 @@ export function toRawScrapeRequest(
     minBedrooms: options.minBedrooms,
     checkIn: options.checkIn,
     checkOut: options.checkOut,
+    propertyType: (options as any).propertyType,
   };
 }
 

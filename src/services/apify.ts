@@ -18,6 +18,18 @@ function getClient(): ApifyClient {
   return client;
 }
 
+// Map propertyType to Airbnb room_types[] URL param
+function airbnbRoomType(propertyType?: string): string | null {
+  switch (propertyType) {
+    case "entire_home":
+      return "Entire home/apt";
+    case "private_room":
+      return "Private room";
+    default:
+      return null; // "any" or unset — let Airbnb return all types
+  }
+}
+
 // Build Airbnb search URL from location string
 function buildSearchUrl(options: ScrapeOptions): string {
   const { location, minBedrooms, checkIn, checkOut } = resolveRawScrapeRequest(
@@ -29,6 +41,9 @@ function buildSearchUrl(options: ScrapeOptions): string {
   let url = `https://www.airbnb.com/s/${slug}/homes?query=${encoded}&tab_id=home_tab&refinement_paths%5B%5D=%2Fhomes&currency=USD`;
 
   url += `&min_bedrooms=${minBedrooms}`;
+
+  const roomType = airbnbRoomType(options.propertyType);
+  if (roomType) url += `&room_types%5B%5D=${encodeURIComponent(roomType)}`;
 
   if (checkIn) url += `&checkin=${checkIn}`;
   if (checkOut) url += `&checkout=${checkOut}`;

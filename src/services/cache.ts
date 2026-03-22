@@ -43,9 +43,12 @@ export function buildRawListingsCacheKey(request: RawScrapeRequest): string {
   const checkIn = resolved.checkIn ?? "none";
   const checkOut = resolved.checkOut ?? "none";
 
+  const propertyType = request.propertyType || "any";
+
   return [
     "str",
     normalizeCacheKey(resolved.location),
+    `type-${propertyType}`,
     `bedrooms-${resolved.minBedrooms}`,
     `checkin-${checkIn}`,
     `checkout-${checkOut}`,

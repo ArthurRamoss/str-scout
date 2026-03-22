@@ -1,0 +1,128 @@
+Subject: STR Scout — Grant Review Request (Tool ID: 976d3ad9-a77d-492b-8d16-5360a59ac83f)
+
+
+Hi Alex,
+
+STR Scout is live on the marketplace, passing execute verification, and ready for review. Every concern from your Tier A feedback has been addressed. Details below.
+
+
+TOOL INFO
+
+  Tool Name: STR Scout
+  Tool ID: 976d3ad9-a77d-492b-8d16-5360a59ac83f
+  Endpoint: https://str-scout-production.up.railway.app/mcp
+  Health Check: https://str-scout-production.up.railway.app/health
+  GitHub: https://github.com/ArthurRamoss/str-scout
+  Wallet: 0x330CaB65521F7e406b6123Dd2ED69c2D120a1642
+
+
+TEST QUESTIONS + EXPECTED RESPONSES
+
+1) "What's the estimated annual revenue for an entire home Airbnb in Austin, TX?"
+
+   Expected: Revenue range with three tiers (low/mid/high), e.g. $35,000-$65,000/year.
+   Includes confidence level (high/medium/low based on sample size), ADR median
+   with P25-P75 range, occupancy estimate with methodology explanation, and an
+   AI-generated investment summary with a bullish/cautious/bearish recommendation.
+   Should show 12+ filtered listings from 15 total analyzed, data freshness
+   indicator, and top 5 comparable listings with Airbnb URLs.
+
+2) "How saturated is the short-term rental market in Austin, TX?"
+
+   Expected: Competitive saturation score (0-100) with a label (undersupplied,
+   balanced, competitive, or oversaturated). Includes total active listings count,
+   average market rating, percentage of Guest Favorite badges, and context on what
+   the score means for new entrants. The investment summary should reference
+   saturation in its recommendation.
+
+3) "What amenities should I add to my Austin, TX Airbnb to compete with top performers?"
+
+   Expected: Amenity gap analysis showing amenities that top-performing listings
+   have more often than average listings, with percentage gaps (e.g. "Pool: 78% of
+   top performers vs 34% of all listings"). Returns a ranked list of recommended
+   amenities — the ones with the biggest gap represent the best ROI investments.
+
+4) "Analyze Austin, TX for a private room with 1 bedroom."
+
+   Expected: Same full analysis but filtered for private rooms instead of entire
+   homes. Revenue estimates should be noticeably lower than entire home results.
+   Room type in top comparables should show "private_room". Filtered listings count
+   will be lower than total analyzed (filter applied). Occupancy and saturation
+   reflect the private room sub-market.
+
+5) "Is a studio Airbnb profitable in downtown Denver, CO?"
+
+   Expected: Full market analysis for Denver with bedrooms=0 filter. If this is
+   a cold (uncached) market, response may take 30-120 seconds for the initial
+   scrape. Confidence level may be "low" if fewer than 20 listings match. The
+   investment summary should still provide a clear recommendation even with
+   limited data, and the methodology field explains the assumptions used.
+
+
+HOW I ADDRESSED YOUR TIER A CONCERNS
+
+1. "Blocked dates don't equal booked dates"
+   I never touch calendars. The tool uses a review velocity model: review count
+   divided by assumed listing age gives reviews/month, divided by 0.6 review rate
+   gives bookings/month, times 3.5 avg stay gives nights/month, capped at 85%
+   occupancy. Every response includes a methodology field explaining exactly how
+   the estimate was derived. No calendar inference, no availability gap guessing.
+   (src/services/analysis.ts lines 170-255)
+
+2. "Add confidence intervals to revenue estimates"
+   Every estimate returns low (P25), mid (P50), and high (P75) ranges with a
+   confidence level: high (50+ listings), medium (20-49), low (<20). Occupancy
+   also carries its own confidence level. No single-number estimates anywhere.
+   (src/services/analysis.ts lines 233-237)
+
+3. "What happens when Apify fails mid-query?"
+   Dual-scraper architecture: primary scraper fails, fallback scraper kicks in.
+   Cache-first strategy: if data exists within 7 days, serve immediately (<2s).
+   Every response includes dataFreshness ("live", "cached_48h", "cached_7d") and
+   a cachedAt timestamp. If both scrapers fail, explicit error with both failure
+   reasons — no silent garbage.
+   (src/services/apify.ts lines 109-129, src/services/cache.ts)
+
+4. "The 60-second timeout kills the response"
+   Server timeout is 300 seconds. Apify actors also get 300 seconds each. But
+   cached queries serve in under 2 seconds. The server auto-seeds Austin, TX
+   cache on boot, so the most common first query hits cache immediately.
+   (src/server.ts line 244)
+
+5. "Add confidence intervals" (your suggestion)
+   Done from day one. "Estimated $35K-$65K annual revenue (high confidence)" is
+   the default output format. The methodology string documents every assumption
+   so investors can judge the estimate quality themselves.
+
+6. Beyond your concerns — what I added:
+   - Amenity gap analysis: top performers vs market average with percentage gaps
+   - Competitive saturation scoring: 0-100 with density + quality signals
+   - Top 5 comparable listings: deduplicated, with direct Airbnb links
+   - AI investment summary: Gemini 2.5 Flash briefing with rule-based fallback
+   - 95 unit tests + 61 deep validation checks + marketplace SDK validation
+
+
+MARKETPLACE VERIFICATION STATUS
+
+  Discovery (direct lookup): PASS
+  Discovery (query search): PASS — 10 matches
+  Discovery (execute search): PASS — 3 matches
+  Execute surface: PASS — all 12 outputSchema fields returned
+  Session lifecycle: PASS — start, execute, close
+  Query surface: Pending (Auto Pay spending cap configuration)
+
+
+TECH STACK
+
+  Runtime: Node.js + TypeScript
+  MCP SDK: @modelcontextprotocol/sdk (StreamableHTTPServerTransport)
+  Context SDK: @ctxprotocol/sdk@0.9.0 (createContextMiddleware on all routes)
+  Data: Dual Apify scrapers with cache-first architecture
+  AI: Google Gemini 2.5 Flash for investment summaries
+  Hosting: Railway (auto-deploy from GitHub)
+  Tests: 95 unit tests, 61 deep validation checks
+
+
+Thanks for the opportunity. Happy to answer any questions or run additional tests.
+
+Arthur

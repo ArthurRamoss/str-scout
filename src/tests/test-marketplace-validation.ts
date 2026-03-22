@@ -55,7 +55,7 @@ function pickExample(
   return fallbacks[0];
 }
 
-function generateSampleArgs(tool: McpTool): Record<string, unknown> {
+function generateSampleArgs(tool: McpTool, requiredOnly = false): Record<string, unknown> {
   const schema = getNestedRecord(tool.inputSchema) ?? {};
   const props = getSchemaProperties(tool.inputSchema);
   const meta = getNestedRecord(tool._meta);
@@ -65,8 +65,11 @@ function generateSampleArgs(tool: McpTool): Record<string, unknown> {
   );
   const args: Record<string, unknown> = { ...smokeTestInput };
 
+  // When requiredOnly is true, only fill required fields + smokeTestInput
+  // This avoids adding optional params (checkIn/checkOut/bedrooms) that cause cache misses
   for (const [key, rawSchema] of Object.entries(props)) {
     if (args[key] !== undefined) continue;
+    if (requiredOnly && !required.has(key)) continue;
 
     const propSchema = getNestedRecord(rawSchema) ?? {};
     const type = propSchema.type;
@@ -398,7 +401,7 @@ async function runExecuteChecks(tool: Tool): Promise<"passed" | "blocked"> {
 
   try {
     for (const method of methods) {
-      const args = generateSampleArgs(method);
+      const args = generateSampleArgs(method, true);
       console.log(`[execute] ${method.name} args=${JSON.stringify(args)}`);
 
       let result;

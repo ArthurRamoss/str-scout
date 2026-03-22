@@ -45,6 +45,7 @@ export async function handleAnalyzeMarket(
     minBedrooms: bedrooms ?? undefined,
     checkIn: checkIn ?? undefined,
     checkOut: checkOut ?? undefined,
+    propertyType: propertyType as any,
   });
 
   const cached = await getCachedListings(rawScrapeRequest);

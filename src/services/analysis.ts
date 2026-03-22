@@ -125,6 +125,23 @@ function extractRating(listing: AirbnbListing): number {
 }
 
 // ==========================================
+// Extract room type from listing
+// Supports: curious_coder (primary) + memo23 (fallback)
+// ==========================================
+
+function extractRoomType(listing: AirbnbListing): string {
+  // Check explicit fields first (memo23 has room_type / property_type)
+  const explicit = listing.room_type || listing.property_type || listing.roomType || listing.type;
+  if (explicit) return explicit;
+  // Parse from title (curious_coder puts room type in title, e.g. "Entire rental unit in Austin, Texas")
+  const title = (listing.title || listing.name || "").toLowerCase();
+  if (title.includes("entire")) return "entire_home";
+  if (title.includes("private")) return "private_room";
+  if (title.includes("shared")) return "shared_room";
+  return "unknown";
+}
+
+// ==========================================
 // Filter listings by property type
 // Supports: curious_coder (primary) + memo23 (fallback)
 // ==========================================
@@ -201,7 +218,8 @@ export function estimateRevenue(
   const nightsPerMonth = bookingsPerMonth.map(
     (bpm) => Math.min(bpm * DEFAULT_AVG_STAY, 30)
   );
-  const occupancyRates = nightsPerMonth.map((n) => Math.min(n / 30, 1.0));
+  // Cap at 85% — no market sustains 100% occupancy year-round
+  const occupancyRates = nightsPerMonth.map((n) => Math.min(n / 30, 0.85));
 
   const occP25 = percentile(occupancyRates.sort((a, b) => a - b), 25);
   const occP50 = percentile(occupancyRates, 50);
@@ -474,15 +492,23 @@ export function getTopComparables(
   limit = 5
 ): TopComparable[] {
   // Score listings by rating × reviewCount (most popular + highest rated)
-  const scored = listings
+  const sorted = listings
     .map((l) => ({
       listing: l,
       score: extractRating(l) * Math.log2(extractReviewCount(l) + 1),
       price: extractPrice(l),
     }))
     .filter((s) => s.price !== null && s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+    .sort((a, b) => b.score - a.score);
+
+  // Deduplicate by URL to avoid showing the same listing twice
+  const seen = new Set<string>();
+  const scored = sorted.filter((s) => {
+    const url = s.listing.listing_url || s.listing.propertyUrl || s.listing.url || "";
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  }).slice(0, limit);
 
   return scored.map((s) => ({
     name: s.listing.title || s.listing.property_name || s.listing.name || "Unnamed Listing",
@@ -490,7 +516,7 @@ export function getTopComparables(
     pricePerNight: s.price!,
     rating: Math.round(extractRating(s.listing) * 100) / 100,
     reviewCount: extractReviewCount(s.listing),
-    roomType: s.listing.room_type || s.listing.property_type || s.listing.roomType || s.listing.type || "unknown",
+    roomType: extractRoomType(s.listing),
     isGuestFavorite:
       s.listing.hostDetails?.isSuperhost ||
       s.listing.host_is_superhost ||

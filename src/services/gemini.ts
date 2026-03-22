@@ -16,7 +16,7 @@ export async function generateInvestmentSummary(
   analysis: Omit<MarketAnalysis, "investmentSummary">
 ): Promise<string> {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = client.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are a short-term rental investment analyst. Given the following market data, write a concise 2-3 sentence investment summary with a clear recommendation (bullish, cautious, or bearish).
 

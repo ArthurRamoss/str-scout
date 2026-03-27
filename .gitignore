@@ -2,3 +2,13 @@ node_modules/
 dist/
 .env
 *.log
+.claude/
+AGENT_CONTEXT.md
+nul
+docs/claude-code-prompt-*.md
+docs/*-plan.md
+docs/execute-test-report-*.md
+docs/marketplace-validation-report-*.md
+docs/email-grant-review-request.txt
+docs/tier-s-review-request.md
+docs/*economics*.md

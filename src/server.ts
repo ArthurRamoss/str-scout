@@ -139,10 +139,10 @@ const sessions: Record<
   { transport: StreamableHTTPServerTransport; server: Server }
 > = {};
 
-// Context Protocol middleware — required for paid tools
+// Context Protocol middleware - required for paid tools
 const verifyContextAuth = createContextMiddleware();
 
-// POST /mcp — main MCP endpoint
+// POST /mcp - main MCP endpoint
 app.post("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   let transport: StreamableHTTPServerTransport;
@@ -182,7 +182,7 @@ app.post("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
   await transport.handleRequest(req, res, req.body);
 });
 
-// GET /mcp — SSE streaming
+// GET /mcp - SSE streaming
 app.get("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string;
   const session = sessions[sessionId];
@@ -193,7 +193,7 @@ app.get("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /mcp — session cleanup
+// DELETE /mcp - session cleanup
 app.delete("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string;
   const session = sessions[sessionId];
@@ -205,7 +205,7 @@ app.delete("/mcp", verifyContextAuth, async (req: Request, res: Response) => {
 });
 
 // ============================================================================
-// Warm-up endpoint — pre-seed cache for smoke tests
+// Warm-up endpoint - pre-seed cache for smoke tests
 // ============================================================================
 
 const ENABLE_WARMUP_ENDPOINT = process.env.ENABLE_WARMUP_ENDPOINT === "true";
@@ -229,13 +229,13 @@ if (ENABLE_WARMUP_ENDPOINT) {
 
 const PORT = Number(process.env.PORT || 3000);
 const httpServer = app.listen(PORT, () => {
-  console.log(`\n🏠 STR Scout MCP Server v1.0.0`);
-  console.log(`   Short-term rental market intelligence\n`);
-  console.log(`📡 MCP endpoint: http://localhost:${PORT}/mcp`);
-  console.log(`💚 Health check: http://localhost:${PORT}/health`);
-  console.log(`\n🛠️  Tools (${TOOLS.length}):`);
+  console.log(`\nSTR Scout MCP Server v1.0.0`);
+  console.log(`Short-term rental market intelligence\n`);
+  console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`\nTools (${TOOLS.length}):`);
   for (const tool of TOOLS) {
-    console.log(`   • ${tool.name}`);
+    console.log(`- ${tool.name}`);
   }
   console.log("");
 });
@@ -255,7 +255,7 @@ setTimeout(async () => {
   console.log(`[warmup] Auto-seeding cache for "${WARMUP_LOCATION}"...`);
   try {
     await handleAnalyzeMarket({ location: WARMUP_LOCATION });
-    console.log(`[warmup] Cache seeded for "${WARMUP_LOCATION}" ✓`);
+    console.log(`[warmup] Cache seeded for "${WARMUP_LOCATION}"`);
   } catch (err: any) {
     console.warn(`[warmup] Failed to seed cache: ${err.message}`);
   }

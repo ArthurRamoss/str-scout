@@ -2,7 +2,7 @@ export const TOOLS = [
   {
     name: "analyze_str_market",
     description:
-      "Analyze a short-term rental (Airbnb) market for investment potential. Returns estimated annual revenue with confidence intervals, average daily rates, occupancy estimates via review velocity model, competitive saturation scoring, structured amenity gap analysis, and top comparable listings. Replaces AirDNA MarketMinder for a fraction of the cost.",
+      "Analyze a short-term rental (Airbnb) market for investment potential. Returns estimated annual revenue with confidence intervals, average daily rates, occupancy estimates via review velocity model, competitive saturation scoring, structured amenity gap analysis, and top comparable listings. Low-confidence outputs should be treated as directional; rerun with broader filters or compare nearby markets if you need more certainty. Replaces AirDNA MarketMinder for a fraction of the cost.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -23,7 +23,8 @@ export const TOOLS = [
         bedrooms: {
           type: "number",
           description:
-            "Minimum number of bedrooms to require in the market search. Use 0 for studio-oriented searches.",
+            "Minimum number of bedrooms to require in the market search. Defaults to 1 if omitted. Use 0 for studio-oriented searches.",
+          default: 1,
           minimum: 0,
           examples: [0, 1, 2],
         },

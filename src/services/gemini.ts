@@ -29,7 +29,7 @@ Saturation: ${analysis.competitiveSaturation.label} (${analysis.competitiveSatur
 Guest Favorites: ${analysis.competitiveSaturation.guestFavoritePercent}%
 Top recommended amenities: ${analysis.amenityGapAnalysis.recommendedAmenities.join(", ") || "N/A"}
 
-Write the summary as if briefing a real estate investor. Be specific with numbers. No bullet points.`;
+Write the summary as if briefing a real estate investor. Be specific with numbers. If confidence is low or the comparable count is thin, say the read is directional and suggest a broader follow-up check. No bullet points.`;
 
   const result = await model.generateContent(prompt);
   const text = result.response.text().trim();

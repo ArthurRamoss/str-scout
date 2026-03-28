@@ -173,6 +173,14 @@ function filterByPropertyType(
 const REVIEW_RATE = 0.6; // 60% of guests leave reviews
 const DEFAULT_AVG_STAY = 3.5; // nights
 const ASSUMED_LISTING_AGE_MONTHS = 24; // conservative default if unknown
+const MEDIUM_CONFIDENCE_MIN_SAMPLE = 12;
+const HIGH_CONFIDENCE_MIN_SAMPLE = 25;
+
+function classifyConfidence(sampleSize: number): "high" | "medium" | "low" {
+  if (sampleSize >= HIGH_CONFIDENCE_MIN_SAMPLE) return "high";
+  if (sampleSize >= MEDIUM_CONFIDENCE_MIN_SAMPLE) return "medium";
+  return "low";
+}
 
 export function estimateRevenue(
   listings: AirbnbListing[]
@@ -186,6 +194,7 @@ export function estimateRevenue(
     .map(extractReviewCount)
     .filter((r) => r > 0)
     .sort((a, b) => a - b);
+  const usableSampleSize = Math.min(prices.length, reviewCounts.length);
 
   if (prices.length === 0 || reviewCounts.length === 0) {
     return {
@@ -230,13 +239,10 @@ export function estimateRevenue(
   const midEstimate = Math.round(adrP50 * occP50 * 365);
   const highEstimate = Math.round(adrP75 * occP75 * 365);
 
-  // Confidence based on sample size
-  let confidenceLevel: "high" | "medium" | "low";
-  if (listings.length >= 50) confidenceLevel = "high";
-  else if (listings.length >= 20) confidenceLevel = "medium";
-  else confidenceLevel = "low";
+  // Confidence is based on listings that have both usable price and review data.
+  const confidenceLevel = classifyConfidence(usableSampleSize);
 
-  const methodology = `Review velocity model: median ${median(reviewsPerMonth).toFixed(1)} reviews/month across ${listings.length} listings, estimated ${(REVIEW_RATE * 100).toFixed(0)}% review rate, ${DEFAULT_AVG_STAY} avg night stay. Revenue = ADR × estimated occupancy × 365.`;
+  const methodology = `Review velocity model: median ${median(reviewsPerMonth).toFixed(1)} reviews/month across ${usableSampleSize} usable listings, estimated ${(REVIEW_RATE * 100).toFixed(0)}% review rate, ${DEFAULT_AVG_STAY} avg night stay. Revenue = ADR × estimated occupancy × 365. Confidence scales with usable sample depth (${MEDIUM_CONFIDENCE_MIN_SAMPLE}+ for medium, ${HIGH_CONFIDENCE_MIN_SAMPLE}+ for high).`;
 
   return {
     revenue: {
@@ -249,7 +255,7 @@ export function estimateRevenue(
     occupancy: {
       estimatedRate: Math.round(occP50 * 100) / 100,
       confidenceLevel,
-      basedOn: `Review velocity model across ${reviewCounts.length} listings with review data. Median ${median(reviewsPerMonth).toFixed(1)} reviews/month → ${(occP50 * 100).toFixed(0)}% estimated occupancy.`,
+      basedOn: `Review velocity model across ${usableSampleSize} usable listings. Median ${median(reviewsPerMonth).toFixed(1)} reviews/month → ${(occP50 * 100).toFixed(0)}% estimated occupancy.`,
     },
   };
 }

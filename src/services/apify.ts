@@ -117,6 +117,10 @@ async function scrapeFallback(options: ScrapeOptions): Promise<AirbnbListing[]> 
     `[apify] FALLBACK: ${items.length} listings in ${elapsed}s (cost: $${run.usageTotalUsd ?? "?"})`
   );
 
+  if (items.length === 0) {
+    throw new Error("Fallback scraper returned 0 results");
+  }
+
   return items as AirbnbListing[];
 }
 

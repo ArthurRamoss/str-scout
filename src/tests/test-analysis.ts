@@ -135,6 +135,7 @@ async function main() {
   assert(result.revenue.midEstimate > result.revenue.lowEstimate, `Mid ($${result.revenue.midEstimate.toLocaleString()}) > Low`);
   assert(result.revenue.highEstimate > result.revenue.midEstimate, `High ($${result.revenue.highEstimate.toLocaleString()}) > Mid`);
   assert(["high", "medium", "low"].includes(result.revenue.confidenceLevel), `Confidence level valid: ${result.revenue.confidenceLevel}`);
+  assert(result.revenue.confidenceLevel === "medium", `Confidence aligns with sampled depth (expected medium, got ${result.revenue.confidenceLevel})`);
   assert(result.revenue.methodology.length > 20, `Methodology present (${result.revenue.methodology.length} chars)`);
 
   // Test 3: ADR

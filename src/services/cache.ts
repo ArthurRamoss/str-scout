@@ -70,7 +70,8 @@ async function cacheSet(key: string, value: string, ttlSeconds: number): Promise
   } else {
     memoryCache.set(key, value);
     // Simple TTL for in-memory: delete after timeout
-    setTimeout(() => memoryCache.delete(key), ttlSeconds * 1000);
+    const timer = setTimeout(() => memoryCache.delete(key), ttlSeconds * 1000);
+    timer.unref?.();
   }
 }
 
@@ -78,6 +79,11 @@ export interface CacheResult {
   listings: AirbnbListing[];
   dataFreshness: DataFreshness;
   cachedAt: string;
+}
+
+export interface BestEffortCacheResult extends CacheResult {
+  exactMatch: boolean;
+  matchedRequest: RawScrapeRequest;
 }
 
 export async function getCachedListings(
@@ -107,6 +113,48 @@ export async function getCachedListings(
   } catch {
     return null;
   }
+}
+
+function dedupeCacheCandidates(requests: RawScrapeRequest[]): RawScrapeRequest[] {
+  const seen = new Set<string>();
+  const candidates: RawScrapeRequest[] = [];
+
+  for (const request of requests) {
+    const key = buildRawListingsCacheKey(request);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push(request);
+  }
+
+  return candidates;
+}
+
+export async function getBestEffortCachedListings(
+  request: RawScrapeRequest
+): Promise<BestEffortCacheResult | null> {
+  const noDatesRequest: RawScrapeRequest = {
+    location: request.location,
+    minBedrooms: request.minBedrooms,
+    propertyType: request.propertyType,
+  };
+
+  const candidates = dedupeCacheCandidates([request, noDatesRequest]);
+
+  for (const candidate of candidates) {
+    const cached = await getCachedListings(candidate);
+    if (!cached) continue;
+
+    const exactMatch = buildRawListingsCacheKey(candidate) === buildRawListingsCacheKey(request);
+
+    return {
+      ...cached,
+      dataFreshness: exactMatch ? cached.dataFreshness : "market_estimates_only",
+      exactMatch,
+      matchedRequest: candidate,
+    };
+  }
+
+  return null;
 }
 
 export async function saveToCache(

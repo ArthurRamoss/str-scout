@@ -21,6 +21,8 @@ export async function generateInvestmentSummary(
   const prompt = `You are a short-term rental investment analyst. Given the following market data, write a concise 2-3 sentence investment summary with a clear recommendation (bullish, cautious, or bearish).
 
 Market: ${analysis.location}
+Status: ${analysis.resultStatus}
+Confidence guidance: ${analysis.confidenceGuidance}
 Listings analyzed: ${analysis.filteredListings} (of ${analysis.totalListingsAnalyzed} total)
 Revenue estimate: $${analysis.revenueEstimate.lowEstimate.toLocaleString()}-$${analysis.revenueEstimate.highEstimate.toLocaleString()}/year (${analysis.revenueEstimate.confidenceLevel} confidence)
 ADR: $${analysis.averageDailyRate.median}/night (range: $${analysis.averageDailyRate.percentile25}-$${analysis.averageDailyRate.percentile75})
@@ -28,6 +30,7 @@ Occupancy: ${(analysis.occupancyEstimate.estimatedRate * 100).toFixed(0)}%
 Saturation: ${analysis.competitiveSaturation.label} (${analysis.competitiveSaturation.score}/100)
 Guest Favorites: ${analysis.competitiveSaturation.guestFavoritePercent}%
 Top recommended amenities: ${analysis.amenityGapAnalysis.recommendedAmenities.join(", ") || "N/A"}
+Suggested future-round follow-up query: ${analysis.recommendedNextQuery}
 
 Write the summary as if briefing a real estate investor. Be specific with numbers. If confidence is low or the comparable count is thin, say the read is directional and suggest a broader follow-up check. No bullet points.`;
 

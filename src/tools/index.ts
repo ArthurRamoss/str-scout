@@ -2,7 +2,7 @@ export const TOOLS = [
   {
     name: "analyze_str_market",
     description:
-      "Analyze a short-term rental (Airbnb) market for investment potential. Returns estimated annual revenue with confidence intervals, average daily rates, occupancy estimates via review velocity model, competitive saturation scoring, structured amenity gap analysis, and top comparable listings. Low-confidence outputs should be treated as directional; rerun with broader filters or compare nearby markets if you need more certainty. Replaces AirDNA MarketMinder for a fraction of the cost.",
+      "Analyze a short-term rental (Airbnb) market for investment potential. Returns estimated annual revenue with confidence intervals, average daily rates, occupancy estimates via review velocity model, competitive saturation scoring, structured amenity gap analysis, and top comparable listings. Low-confidence outputs are directional; the tool returns explicit status, guidance, and a suggested next query for a future follow-up round without requiring a second tool call in the same response. Replaces AirDNA MarketMinder for a fraction of the cost.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -62,6 +62,22 @@ export const TOOLS = [
           format: "date-time",
           description:
             "ISO timestamp of when data was scraped or last cached",
+        },
+        resultStatus: {
+          type: "string",
+          description:
+            "Structured status for the analysis result: exact match, low-confidence directional read, no exact matches, or cached fallback used",
+          enum: ["ok", "low_confidence", "no_exact_matches", "fallback_used"],
+        },
+        confidenceGuidance: {
+          type: "string",
+          description:
+            "Short explanation of how trustworthy the result is and how to interpret it",
+        },
+        recommendedNextQuery: {
+          type: "string",
+          description:
+            "One concrete follow-up question the user can ask in a future round to improve certainty or broaden the search",
         },
         totalListingsAnalyzed: {
           type: "number",
@@ -299,6 +315,9 @@ export const TOOLS = [
         "location",
         "dataFreshness",
         "cachedAt",
+        "resultStatus",
+        "confidenceGuidance",
+        "recommendedNextQuery",
         "totalListingsAnalyzed",
         "filteredListings",
         "revenueEstimate",

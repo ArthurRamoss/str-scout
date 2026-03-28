@@ -120,8 +120,8 @@ function getExpectedOutputKeys(methodName: string): string[] {
     ? outputSchema.required.filter((field): field is string => typeof field === "string")
     : [];
 
-  if (required.length !== 12) {
-    throw new Error(`Expected 12 required output fields for ${methodName}, got ${required.length}`);
+  if (required.length === 0) {
+    throw new Error(`No required output fields found for ${methodName}`);
   }
 
   return required;

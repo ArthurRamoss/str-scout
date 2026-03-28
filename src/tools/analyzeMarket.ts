@@ -1,11 +1,17 @@
-import type { MarketAnalysis, DataFreshness, AirbnbListing, ScrapeOptions } from "../types/index.js";
+import type {
+  MarketAnalysis,
+  DataFreshness,
+  AirbnbListing,
+  ScrapeOptions,
+  MarketResultStatus,
+} from "../types/index.js";
 import { scrapeAirbnbListings } from "../services/apify.js";
 import { getBestEffortCachedListings, getCachedListings, saveToCache } from "../services/cache.js";
 import { analyzeMarketData } from "../services/analysis.js";
 import { generateInvestmentSummary } from "../services/gemini.js";
 import { toRawScrapeRequest } from "../services/scrapeRequest.js";
 
-type PropertyType = ScrapeOptions["propertyType"];
+type PropertyType = NonNullable<ScrapeOptions["propertyType"]>;
 
 interface AnalyzeMarketArgs {
   location: string;
@@ -69,25 +75,84 @@ function shouldUseDeterministicSummary(data: Omit<MarketAnalysis, "investmentSum
   );
 }
 
-function buildFollowUpGuidance(data: Omit<MarketAnalysis, "investmentSummary">): string | null {
+function getResultStatus(data: Omit<MarketAnalysis, "investmentSummary">): MarketResultStatus {
+  if (data.filteredListings === 0) {
+    return "no_exact_matches";
+  }
+
   if (data.dataFreshness === "market_estimates_only") {
-    return "For higher confidence, rerun the same market without seasonal dates or retry later so STR Scout can refresh live listing data.";
+    return "fallback_used";
+  }
+
+  if (data.revenueEstimate.confidenceLevel !== "high") {
+    return "low_confidence";
+  }
+
+  return "ok";
+}
+
+function buildConfidenceGuidance(data: Omit<MarketAnalysis, "investmentSummary">): string {
+  if (data.dataFreshness === "market_estimates_only") {
+    return "This is a directional read from the closest cached market baseline because live scrape data was unavailable for the exact request.";
   }
 
   if (data.filteredListings === 0) {
-    return "For higher confidence, broaden the request with propertyType \"any\", a lower bedroom requirement, or no seasonal dates.";
+    return "No listings matched the exact filters, so treat this as an absence signal rather than a market verdict.";
   }
 
   if (data.revenueEstimate.confidenceLevel === "low" || data.filteredListings < 5) {
-    return "For higher confidence, broaden the filters and compare the result with a nearby neighborhood or nearby city.";
+    return `This result is directional because only ${data.filteredListings} comparable listings were available after filtering.`;
   }
 
-  return null;
+  if (data.revenueEstimate.confidenceLevel === "medium") {
+    return `This result is reasonably grounded but still based on a moderate sample of ${data.filteredListings} comparable listings.`;
+  }
+
+  return `This result is well-supported by ${data.filteredListings} comparable listings and exact-match market data.`;
+}
+
+function buildFutureRoundQuery(
+  location: string,
+  propertyType: PropertyType,
+  bedrooms: number | undefined,
+  checkIn: string | undefined,
+  checkOut: string | undefined,
+  status: MarketResultStatus
+): string {
+  const baselinePrompt =
+    "Give me the annual revenue range, ADR, occupancy estimate, saturation score, top amenity gaps, and 3 best comparables.";
+
+  if (status === "fallback_used") {
+    const bedroomPhrase = bedrooms !== undefined ? ` with at least ${bedrooms} bedroom${bedrooms === 1 ? "" : "s"}` : "";
+    return `Analyze the Airbnb investment potential for ${location} for ${propertyType.replace("_", " ")}${bedroomPhrase} without seasonal dates. ${baselinePrompt}`;
+  }
+
+  if (status === "no_exact_matches") {
+    return `Analyze the Airbnb investment potential for ${location} across any property type with no seasonal dates. ${baselinePrompt}`;
+  }
+
+  if (status === "low_confidence") {
+    if (propertyType !== "any") {
+      return `Analyze the Airbnb investment potential for ${location} across any property type as a broader market baseline. ${baselinePrompt}`;
+    }
+
+    if (bedrooms !== undefined && bedrooms > 0) {
+      return `Analyze the Airbnb investment potential for ${location} with bedrooms 0 and no seasonal dates to broaden the sample. ${baselinePrompt}`;
+    }
+
+    if (checkIn || checkOut) {
+      return `Analyze the Airbnb investment potential for ${location} with the same filters but no seasonal dates. ${baselinePrompt}`;
+    }
+
+    return `Compare the Airbnb market outlook for ${location} against a nearby city to validate whether this directional read is market-specific.`;
+  }
+
+  return `Compare the Airbnb market outlook for ${location} against a nearby city to stress-test whether the current read still looks attractive.`;
 }
 
 function buildFallbackSummary(data: Omit<MarketAnalysis, "investmentSummary">): string {
   const { revenueEstimate: rev, competitiveSaturation: sat, averageDailyRate: adr, occupancyEstimate: occ } = data;
-  const followUp = buildFollowUpGuidance(data);
+  const followUp = data.confidenceGuidance;
 
   if (data.filteredListings === 0) {
     return [
@@ -201,6 +266,9 @@ export async function handleAnalyzeMarket(
     location,
     dataFreshness,
     cachedAt,
+    resultStatus: "ok",
+    confidenceGuidance: "",
+    recommendedNextQuery: "",
     totalListingsAnalyzed: listings.length,
     filteredListings: filtered.length,
     revenueEstimate: revenue,
@@ -210,6 +278,17 @@ export async function handleAnalyzeMarket(
     amenityGapAnalysis: amenityGap,
     topComparables: comparables,
   };
+
+  partialResult.resultStatus = getResultStatus(partialResult);
+  partialResult.confidenceGuidance = buildConfidenceGuidance(partialResult);
+  partialResult.recommendedNextQuery = buildFutureRoundQuery(
+    location,
+    propertyType,
+    bedrooms,
+    checkIn,
+    checkOut,
+    partialResult.resultStatus
+  );
 
   let investmentSummary: string;
   if (shouldUseDeterministicSummary(partialResult)) {

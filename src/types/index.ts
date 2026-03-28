@@ -128,6 +128,11 @@ export interface CachedMarketData {
 }
 
 export type DataFreshness = "live" | "cached_48h" | "cached_7d" | "market_estimates_only";
+export type MarketResultStatus =
+  | "ok"
+  | "low_confidence"
+  | "no_exact_matches"
+  | "fallback_used";
 
 // ==========================================
 // Analysis Output (matches outputSchema exactly)
@@ -186,6 +191,9 @@ export interface MarketAnalysis {
   location: string;
   dataFreshness: DataFreshness;
   cachedAt: string;
+  resultStatus: MarketResultStatus;
+  confidenceGuidance: string;
+  recommendedNextQuery: string;
   totalListingsAnalyzed: number;
   filteredListings: number;
   revenueEstimate: RevenueEstimate;

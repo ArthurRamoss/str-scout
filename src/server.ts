@@ -38,35 +38,18 @@ function formatMarketAnalysisContent(data: MarketAnalysis): string {
   const occupancyPercent = Math.round(data.occupancyEstimate.estimatedRate * 100);
   const amenityList =
     data.amenityGapAnalysis.recommendedAmenities.slice(0, 3).join(", ") || "none identified";
-  const nextStep = buildFollowUpLine(data);
 
   return [
     `Market: ${data.location}`,
     data.investmentSummary,
+    `Status: ${data.resultStatus} | Guidance: ${data.confidenceGuidance}`,
     `Revenue estimate: $${data.revenueEstimate.lowEstimate.toLocaleString()}-$${data.revenueEstimate.highEstimate.toLocaleString()}/year (${data.revenueEstimate.confidenceLevel} confidence)`,
     `ADR: $${data.averageDailyRate.median}/night | Occupancy: ${occupancyPercent}% | Saturation: ${data.competitiveSaturation.label} (${data.competitiveSaturation.score}/100)`,
     `Listings analyzed: ${data.filteredListings} filtered / ${data.totalListingsAnalyzed} total | Data freshness: ${data.dataFreshness}`,
     `Amenity opportunities: ${amenityList}`,
-    nextStep ? `Next step: ${nextStep}` : null,
+    `Next query for a future round: ${data.recommendedNextQuery}`,
   ]
-    .filter((line): line is string => Boolean(line))
     .join("\n");
-}
-
-function buildFollowUpLine(data: MarketAnalysis): string | null {
-  if (data.dataFreshness === "market_estimates_only") {
-    return "rerun the same market without seasonal dates or retry later so STR Scout can refresh live listing data";
-  }
-
-  if (data.filteredListings === 0) {
-    return 'broaden the request with propertyType "any", a lower bedroom requirement, or no seasonal dates';
-  }
-
-  if (data.revenueEstimate.confidenceLevel === "low" || data.filteredListings < 5) {
-    return "broaden the filters and compare the market with a nearby neighborhood or nearby city";
-  }
-
-  return null;
 }
 
 function successResult(data: Record<string, unknown>): CallToolResult {

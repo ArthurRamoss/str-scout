@@ -58,6 +58,10 @@ async function main() {
     location: "Austin, TX",
     dataFreshness: "cached_48h",
     cachedAt: new Date().toISOString(),
+    resultStatus: "low_confidence",
+    confidenceGuidance: "This result is reasonably grounded but still based on a moderate sample of comparable listings.",
+    recommendedNextQuery:
+      "Analyze the Airbnb investment potential for Austin, TX across any property type as a broader market baseline. Give me the annual revenue range, ADR, occupancy estimate, saturation score, top amenity gaps, and 3 best comparables.",
     totalListingsAnalyzed: listings.length,
     filteredListings: filtered.length,
     revenueEstimate: revenue,

@@ -220,11 +220,12 @@ function testSchemaQuality() {
   const output = tool.outputSchema;
   assert(output.type === "object", "outputSchema root type is 'object'");
   assert(Array.isArray(output.required), "outputSchema has required array");
-  assert(output.required.length === 12, `outputSchema has 12 required fields (got ${output.required.length})`);
+  assert(output.required.length === 15, `outputSchema has 15 required fields (got ${output.required.length})`);
 
   // Verify all required fields exist in properties
   const expectedFields = [
-    "location", "dataFreshness", "cachedAt", "totalListingsAnalyzed",
+    "location", "dataFreshness", "cachedAt", "resultStatus", "confidenceGuidance",
+    "recommendedNextQuery", "totalListingsAnalyzed",
     "filteredListings", "revenueEstimate", "averageDailyRate", "occupancyEstimate",
     "competitiveSaturation", "amenityGapAnalysis", "topComparables", "investmentSummary"
   ];

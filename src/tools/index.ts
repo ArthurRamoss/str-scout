@@ -333,6 +333,10 @@ export const TOOLS = [
       surface: "both",
       queryEligible: true,
       latencyClass: "slow",
+      pricing: {
+        queryUsd: "0.10",
+        executeUsd: "0.002",
+      },
       context: [
         "The tool requires a location string. For best results, include city + state for US locations (e.g., 'Austin, TX', 'Miami Beach, FL').",
         "The first query for a new location may still take tens of seconds while data is collected. Repeat queries are served from cache in under 2s.",

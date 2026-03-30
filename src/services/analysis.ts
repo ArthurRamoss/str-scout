@@ -230,14 +230,16 @@ export function estimateRevenue(
   // Cap at 85% — no market sustains 100% occupancy year-round
   const occupancyRates = nightsPerMonth.map((n) => Math.min(n / 30, 0.85));
 
-  const occP25 = percentile(occupancyRates.sort((a, b) => a - b), 25);
-  const occP50 = percentile(occupancyRates, 50);
-  const occP75 = percentile(occupancyRates, 75);
+  const occP50 = percentile(occupancyRates.sort((a, b) => a - b), 50);
 
-  // Annual revenue = ADR × occupancy × 365
-  const lowEstimate = Math.round(adrP25 * occP25 * 365);
+  // Annual revenue = ADR × median occupancy × 365
+  // We use median occupancy for all scenarios because the review velocity model
+  // produces a single occupancy estimate — compounding P25 ADR × P25 occupancy
+  // creates absurd spreads (e.g. $9K vs $99K). The meaningful variance is in ADR
+  // (actual price differences), not in occupancy (model uncertainty).
+  const lowEstimate = Math.round(adrP25 * occP50 * 365);
   const midEstimate = Math.round(adrP50 * occP50 * 365);
-  const highEstimate = Math.round(adrP75 * occP75 * 365);
+  const highEstimate = Math.round(adrP75 * occP50 * 365);
 
   // Confidence is based on listings that have both usable price and review data.
   const confidenceLevel = classifyConfidence(usableSampleSize);
@@ -480,12 +482,24 @@ export function analyzeAmenities(listings: AirbnbListing[]): AmenityGapAnalysis 
     }
   ).sort((a, b) => b.gap - a.gap);
 
+  // Recommend amenities with meaningful gaps (>10pts preferred).
+  // If no amenities clear the threshold, return top 3 with any positive gap
+  // so small/uniform markets still get actionable recommendations.
+  let recommended = gaps
+    .filter((g) => g.gap > 10)
+    .slice(0, 5)
+    .map((g) => g.amenity);
+
+  if (recommended.length === 0) {
+    recommended = gaps
+      .filter((g) => g.gap > 0)
+      .slice(0, 3)
+      .map((g) => g.amenity);
+  }
+
   return {
     topPerformerAmenities: gaps.slice(0, 10).map(({ gap: _gap, ...rest }) => rest),
-    recommendedAmenities: gaps
-      .filter((g) => g.gap > 10)
-      .slice(0, 5)
-      .map((g) => g.amenity),
+    recommendedAmenities: recommended,
   };
 }
 
